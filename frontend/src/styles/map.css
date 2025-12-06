@@ -1,0 +1,536 @@
+/* =========================================
+   MAP PAGE STYLES
+   ========================================= */
+
+.mapPage {
+  background-image: url("../backgrounds/mappage.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.mapPageRoot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mapWrapper {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+}
+
+.mapContainer {
+  width: 100%;
+  height: 100%;
+  background-color: #e5e5e5; /* Fallback color */
+}
+
+/* --- Route Lines --- */
+.route-line {
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  cursor: pointer; /* Show pointer when hovering line */
+  transition: stroke-width 0.2s, stroke 0.2s;
+}
+
+/* Active: Bright Green, Thick, Animated */
+.routeLineActive {
+  animation: routeDraw 1.5s linear forwards;
+  stroke: #61b329;
+  stroke-width: 6; /* Thicker for easier clicking */
+  opacity: 1;
+}
+
+/* Inactive: Grey/Green, Thinner, Faded */
+.routeLineAlt {
+  stroke-dasharray: 0;
+  stroke-dashoffset: 0;
+  stroke: #88a888;
+  stroke-width: 4;
+  opacity: 0.6;
+}
+
+.routeLineAlt:hover {
+  stroke: #61b329; /* Highlight on hover */
+  opacity: 0.9;
+}
+
+@keyframes routeDraw { to { stroke-dashoffset: 0; } }
+
+/* --- Time Pills (Duration Labels) --- */
+.route-label-icon { 
+  background: none; 
+  border: none; 
+}
+
+.route-label-pill {
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  white-space: nowrap;
+  
+  /* Center positioning */
+  position: relative;
+  left: -50%; 
+  top: -50%;
+  
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.route-label-pill:hover {
+  transform: scale(1.1);
+  background-color: #f9f9f9;
+}
+
+/* Active Pill State */
+.route-label-pill.active {
+  background-color: #61b329;
+  color: white;
+  border-color: #4a8c20;
+  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.4);
+  transform: scale(1.1);
+}
+
+/* --- Checkpoint Markers --- */
+.checkpoint-number-inner {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #61b329;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #61b329;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+
+/* =========================================
+   BOTTOM SHEET WITH INTEGRATED SEARCH
+   ========================================= */
+
+.mapCheckpointSection {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mapCheckpointSheet {
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  pointer-events: auto;
+  width: 100%;
+  
+  /* Padding bottom ensures it sits behind nav bar */
+  padding-bottom: 85px; 
+  margin-bottom: 0;
+  
+  /* Smooth slide animation */
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* HEADER: Always Visible Area */
+.mapCheckpointSummaryBar {
+  /* Taller height to fit the search bar */
+  min-height: 80px; 
+  padding: 24px 16px 12px; /* Top padding pushes search bar down */
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: default; /* Don't show pointer everywhere, only on handle */
+  border-bottom: 1px solid transparent;
+}
+
+/* Grey Handle */
+.mapCheckpointSummaryBar::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  width: 40px;
+  height: 4px;
+  background-color: #e0e0e0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* Text Title (for Active Mode) */
+.mapCheckpointSummaryText {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f3d1f;
+  margin-top: 8px;
+}
+
+/* SEARCH BAR STYLING */
+.map-search-form {
+  width: 100%;
+}
+
+.map-search-pill {
+  background: #f2f4f2; /* Light grey background */
+  border: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.map-search-pill:focus-within {
+  background: #ffffff;
+  border-color: #61b329;
+  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.15);
+}
+
+.map-search-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.5;
+}
+
+.map-search-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-size: 16px;
+  color: #1f3d1f;
+  font-weight: 500;
+  outline: none;
+}
+
+.map-search-input::placeholder {
+  color: #88a888;
+}
+
+/* SEARCH AUTOCOMPLETE DROPDOWN */
+.map-search-container {
+  position: relative; 
+  width: 100%;
+}
+
+.search-results-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  margin-top: 8px;
+  z-index: 2000;
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+}
+
+.search-result-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f7f9f7;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background-color: #f4f8f1;
+}
+
+.search-result-icon {
+  font-size: 16px;
+  color: #88a888;
+  background: #f0f0f0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-result-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-main-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f3d1f;
+}
+
+.search-sub-text {
+  font-size: 11px;
+  color: #6b876b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* BODY CONTENT */
+.mapCheckpointBody {
+  padding: 0 24px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  
+  /* Animate opening */
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+  max-height: 60vh;
+  opacity: 1;
+}
+
+/* COLLAPSED STATE LOGIC */
+.mapCheckpointSheetCollapsed {
+  /* Move down so only the 80px header is visible */
+  transform: translateY(calc(100% - 80px));
+}
+
+/* When collapsed, hide the body content completely */
+.mapCheckpointSheetCollapsed .mapCheckpointBody {
+  max-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+}
+
+.mapCheckpointSheetOpen {
+  transform: translateY(0);
+}
+
+/* =========================================
+   CHECKPOINT DETAIL OVERLAY
+   ========================================= */
+
+.checkpoint-overlay-backdrop {
+  position: absolute; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,0.2);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.checkpoint-detail-card {
+  background: #fff; width: 100%; max-width: 320px;
+  border-radius: 24px; padding: 24px 44px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative;
+  display: flex; flex-direction: column;
+}
+
+.cp-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.cp-detail-badge { background: #e9f7dd; color: #0a6f00; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 99px; }
+.cp-close-btn { background: none; border: none; font-size: 24px; color: #888; cursor: pointer; padding: 0; }
+.cp-detail-title { font-size: 20px; font-weight: 700; color: #1f3d1f; margin: 0 0 10px; }
+.cp-detail-meta { display: flex; gap: 8px; margin-bottom: 16px; }
+.cp-meta-item { font-size: 11px; color: #526b57; background: #f4f8f1; padding: 2px 6px; border-radius: 6px; }
+.cp-gif-placeholder { width: 100%; height: 160px; background: #f0f0f0; border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.cp-gif-img { width: 100%; height: 100%; object-fit: cover; }
+.cp-pagination { display: flex; justify-content: center; gap: 4px; margin-bottom: 16px; }
+.cp-dot { width: 6px; height: 6px; border-radius: 50%; background: #ddd; }
+.cp-dot.active { background: #61b329; width: 16px; border-radius: 99px; }
+
+.cp-side-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px; border-radius: 50%; background: #f4f8f1;
+  color: #61b329; font-size: 20px; display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+}
+.cp-side-btn.left { left: 8px; }
+.cp-side-btn.right { right: 8px; }
+.cp-complete-block-btn { width: 100%; background: #61b329; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+
+/* =========================================
+   GREEN SLIDER & PLANNING UI
+   ========================================= */
+
+.checkpoint-control-abstract {
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 20px 16px;
+  border-radius: 20px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.checkpoint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.checkpoint-header span:first-child {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f3d1f;
+}
+
+.checkpoint-count-display {
+  font-size: 16px;
+  color: #ffffff;
+  font-weight: 700;
+  background: #61b329; /* Solid Green Badge */
+  padding: 4px 12px;
+  border-radius: 12px;
+  min-width: 24px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(97, 179, 41, 0.3);
+}
+
+/* Custom Range Slider */
+.styled-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  background: #e0e0e0; /* Track color */
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+  accent-color: #61b329; /* Modern browser support for track fill */
+}
+
+/* The Thumb (Drag Handle) */
+.styled-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #61b329; /* Green Border */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  margin-top: -11px; /* Centers thumb on the track */
+  transition: transform 0.1s ease;
+}
+
+.styled-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  background: #f4f8f1;
+}
+
+/* Firefox Support */
+.styled-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #61b329;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  cursor: pointer;
+}
+
+/* =========================================
+   BUTTONS & TIMELINES
+   ========================================= */
+
+.action-buttons-abstract { display: flex; gap: 10px; margin-top: 16px; }
+.btn-abstract { flex: 1; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; }
+.btn-primary { background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); color: #fff; }
+
+.btn-secondary {
+  /* Keep your existing secondary style if used elsewhere, 
+     OR update it to red if "Clear" is the only secondary button */
+  background: #fff5f5; /* Light red background */
+  color: #d32f2f;       /* Dark red text */
+  border: 2px solid #ffcdd2; /* Light red border */
+}
+
+.btn-secondary:hover {
+  background: #fee2e2;
+  border-color: #ef5350;
+}
+
+.abstract-timeline {
+  position: relative;
+  padding-left: 30px;
+  margin-bottom: 24px;
+  margin-top: 12px;
+}
+.timeline-line {
+  position: absolute; left: 11px; top: 18px; bottom: 18px; width: 2px;
+  background: linear-gradient(to bottom, #61b329, #a7e3a2);
+}
+.timeline-point {
+  position: absolute; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: white; border: 4px solid #61b329; z-index: 2;
+}
+.timeline-point.start { top: 4px; }
+.timeline-point.end { bottom: 4px; border-color: #88a888; }
+
+.location-row-abstract { margin-bottom: 12px; }
+.location-pill-abstract {
+  background: #ffffff; border: 1px solid #f0f0f0;
+  padding: 14px 16px; border-radius: 16px;
+  font-size: 14px; color: #1f3d1f; font-weight: 600; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+.location-pill-abstract .empty-text { color: #88a888; font-weight: 500; }
+
+.swap-btn-abstract {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: white; border: 1px solid #e9f7dd; color: #61b329;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; cursor: pointer; z-index: 10;
+}
+
+/* Mobile List */
+.mapCheckpointList {
+  max-height: 0; overflow: hidden; opacity: 0; transition: all 0.3s ease; margin: 0; padding: 0; list-style: none;
+}
+.mapCheckpointList.expanded {
+  max-height: 250px; opacity: 1; margin-top: 8px; overflow-y: auto;
+}
+.mapCheckpointItem { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f4f8f1; }
+.mapCheckpointLineMain { font-size: 14px; font-weight: 600; color: #1f3d1f; }
+.mapCheckpointLineSub { font-size: 11px; color: #6b876b; }
+
+.checkpoint-toggle-btn {
+  background: none; border: none; color: #61b329; font-size: 13px; font-weight: 600;
+  padding: 12px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; border-top: 1px solid #f0f0f0; margin-top: 8px;
+}
+.checkpoint-toggle-icon { font-size: 10px; transition: transform 0.3s ease; }
+.checkpoint-toggle-icon.open { transform: rotate(180deg); }
+
+/* Active Walk UI */
+.activeWalkContainer { text-align: center; padding-bottom: 10px; animation: fadeIn 0.3s ease; }
+.activeWalkHeader { font-size: 24px; color: #0a6f00; margin-bottom: 16px; font-weight: 700; }
+.directionCard { background-color: #e9f7dd; padding: 20px; border-radius: 20px; border: 2px solid #61b329; margin-bottom: 24px; text-align: left; box-shadow: 0 4px 10px rgba(97, 179, 41, 0.15); }
+.directionLabel { font-size: 12px; text-transform: uppercase; color: #4a6e4d; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; }
+.directionMain { font-size: 18px; font-weight: 700; color: #1f3d1f; line-height: 1.4; }
+.directionSub { margin-top: 8px; font-size: 14px; color: #4a6e4d; display: flex; align-items: center; gap: 6px; }
+.activeNavButtons { display: flex; gap: 12px; margin-top: 20px; }
+.btn-nav-next { flex: 2; background: #1f3d1f; color: white; border: none; font-size: 16px; font-weight: 600; padding: 14px; border-radius: 16px; cursor: pointer; }
+.btn-nav-end { flex: 1; background: #fff0f0; color: #d32f2f; border: 1px solid #ffcdd2; font-size: 14px; font-weight: 600; padding: 14px; border-radius: 16px; cursor: pointer; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

@@ -1,0 +1,95 @@
+/* =========================================
+   HOME PAGE
+   ========================================= */
+
+/* main area for home screen fills phone frame */
+.homePage .mainPage {
+  height: 100%;
+  padding: 0;
+}
+
+/* wrapper inside the home screen */
+.homeContainer {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Title floating over the illustration */
+.homeTitle {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: #0a6f00;
+  /* optional soft card behind text */
+  background:none;
+  padding: 8px 20px;
+  border-radius: 999px;
+}
+
+/* full background image */
+.homeBackground {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+/* bottom sheet card */
+.homeBottomSheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(5px);
+  border-radius: 28px 28px 0 0;
+  padding: 24px 22px;
+  max-height: 60%;
+  overflow-y: auto;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* greeting text and subtitle */
+.homeGreeting {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.homeSubtitle {
+  margin: 0 0 18px 0;
+  font-size: 14px;
+  color: #526b57;
+}
+
+/* stacked buttons inside bottom sheet */
+.verticalButtonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* main green buttons */
+.cardButton {
+  width: 100%;
+  padding: 12px;
+  border-radius: 999px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #79c66c;
+  color: #ffffff;
+}
+
+/* lighter secondary buttons */
+.cardButtonSecondary {
+  background-color: #e3f3e3;
+  color: #2c7a3f;
+}

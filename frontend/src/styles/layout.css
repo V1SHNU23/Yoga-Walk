@@ -1,0 +1,53 @@
+/* =========================================
+   APP SHELL & LAYOUT structure
+   ========================================= */
+.app-shell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  min-height: 100vh;
+  height: 100vh;
+}
+
+.app-inner {
+  width: 430px;
+  height: 100%;           /* NEW: fill .app-shell */
+  max-height: 100vh;      /* keep it within the screen */
+  background: white;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+  transform: none !important;
+  margin: 0 auto;
+  overflow: hidden;       /* prevents inner content from overflowing out */
+}
+
+.appRoot {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+.appScreen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.mainPage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.app-container {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
+}

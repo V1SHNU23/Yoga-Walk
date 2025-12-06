@@ -1,0 +1,221 @@
+/* =========================================
+   PROFILE PAGE
+   ========================================= */
+.profilePage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* soft green gradient background */
+.profileBackground {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #dff8cf 0%, #b9e5b3 60%, #9cd394 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.profileInner {
+  position: relative;
+  z-index: 1;
+  padding: 20px 16px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Header & Avatar */
+.profileHeader {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.profileAvatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profileAvatarInitial {
+  font-size: 32px;
+  font-weight: 700;
+  color: #2f7a33;
+}
+
+.profileName {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #125316;
+}
+
+.profileStreak {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #3f6944;
+}
+
+/* Settings Button Icon */
+.profile-icon {
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.profile-icon:hover {
+  opacity: 0.8;
+}
+
+.profileButton {
+  background: transparent;
+  border: none;
+}
+
+.profileSettingsBtn {
+  position: absolute;
+  top: 0px;
+  right: 32px;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.profileSettingsIcon {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+.profileSettingsIcon.filled {
+  opacity: 0;
+}
+
+.profileSettingsBtn:hover .outline {
+  opacity: 0;
+}
+
+.profileSettingsBtn:hover .filled {
+  opacity: 1;
+}
+
+.profileSettingsBtn:hover .profileSettingsIcon {
+  transform: rotate(25deg);
+}
+
+/* Stats Row */
+.profileStatsRow {
+  display: flex;
+  gap: 8px;
+}
+
+.profileStatCard {
+  flex: 1;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.profileStatLabel {
+  font-size: 12px;
+  color: #4d6f4f;
+  margin-bottom: 4px;
+}
+
+.profileStatValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #125316;
+}
+
+/* Sections & Progress Bars */
+.profileSection {
+  width: 100%;
+}
+
+.profileCard {
+  padding: 14px 14px 12px;
+}
+
+.profileSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.profileSectionTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #125316;
+}
+
+.profileSectionMeta {
+  font-size: 12px;
+  color: #4d6f4f;
+}
+
+.profileSectionText {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #4d6f4f;
+}
+
+.profileProgressTrack {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #dcefdc;
+  overflow: hidden;
+}
+
+.profileProgressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: #61b329;
+}
+
+.profileProgressFillSoft {
+  background: #8acb7f;
+}
+
+/* Action Buttons */
+.profileActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.profilePrimaryButton,
+.profileSecondaryButton {
+  width: 100%;
+  padding: 11px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.profilePrimaryButton {
+  background: #79c66c;
+  color: #ffffff;
+}
+
+.profileSecondaryButton {
+  background: rgba(255, 255, 255, 0.9);
+  color: #2f7a33;
+  border: 1px solid rgba(97, 179, 41, 0.4);
+}

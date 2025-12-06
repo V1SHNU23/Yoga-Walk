@@ -1,0 +1,72 @@
+/* =========================================
+   BOTTOM NAVIGATION
+   ========================================= */
+.appNav {
+  width: 100%;
+  background: #ffffff;
+  border-top: none;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+
+.appNav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.appNav li {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+/* Nav Button styling */
+.navBtn {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.navBtnActive {
+  background: none;
+}
+
+.navBtn .icon {
+  position: absolute;
+  top: 8px;
+  width: 24px;
+  height: 24px;
+}
+
+.navBtn .filled {
+  opacity: 0;
+}
+
+.navBtn:hover .filled,
+.navBtnActive .filled {
+  opacity: 1;
+}
+
+.navLabel {
+  font-size: 11px;
+  margin-top: 34px;
+  color: #0a6f00;
+}
+
+.navBtn:hover .navLabel,
+.navBtnActive .navLabel {
+  font-weight: 700;
+}
