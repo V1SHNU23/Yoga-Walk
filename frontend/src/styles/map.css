@@ -534,3 +534,164 @@
 .btn-nav-end { flex: 1; background: #fff0f0; color: #d32f2f; border: 1px solid #ffcdd2; font-size: 14px; font-weight: 600; padding: 14px; border-radius: 16px; cursor: pointer; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Allows the text pill and button to sit side-by-side */
+.location-row-split {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+/* Make the text pill fill the remaining space */
+.location-pill-abstract.flex-grow {
+  flex: 1;
+}
+
+/* The new square GPS button */
+.btn-gps {
+  width: 48px;
+  height: 48px; /* Matches height of the pills */
+  background: #ffffff;
+  border: 1px solid #dcefdc;
+  border-radius: 12px;
+  color: #61b329;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-gps:hover {
+  background: #e9f7dd;
+  border-color: #61b329;
+  transform: scale(1.05);
+}
+
+.btn-gps:active {
+  transform: scale(0.95);
+}
+
+/* ... existing code ... */
+
+/* --- UPDATE: Input Styling inside Timeline Pills --- */
+.location-pill-abstract {
+  position: relative; /* Needed for absolute dropdown positioning */
+  padding: 0; /* Remove padding from container, move to input */
+  display: flex;
+  align-items: center;
+  overflow: visible; /* Allow dropdown to overflow */
+}
+
+.timeline-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f3d1f;
+  outline: none;
+  border-radius: 16px;
+}
+
+.timeline-input::placeholder {
+  color: #88a888;
+  font-weight: 500;
+}
+
+/* --- UPDATE: Timeline Dropdowns --- */
+.timeline-dropdown {
+  position: absolute;
+  top: 110%; /* Just below the input */
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 1000;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+}
+
+/* Specific style for the "Use Current Location" option */
+.dropdown-option-special {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #61b329; /* Primary Green */
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fcfdfc;
+}
+
+.dropdown-option-special:hover {
+  background: #f4f8f1;
+}
+
+.dropdown-option {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f7f9f7;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-option:last-child {
+  border-bottom: none;
+}
+
+.dropdown-option:hover {
+  background-color: #f9f9f9;
+}
+
+.dropdown-main-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f3d1f;
+}
+
+.dropdown-sub-text {
+  font-size: 11px;
+  color: #88a888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ... existing code ... */
+
+/* The Drag Handle Container */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  cursor: grab;
+  color: #a0a0a0;
+  touch-action: none; /* Critical for mobile dragging */
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  color: #61b329; /* Turn green when grabbing */
+}
+
+/* Remove the old swap button styling if we don't need it, 
+   or just ensure the new list looks clean */
+.reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 0;
+  list-style: none;
+}

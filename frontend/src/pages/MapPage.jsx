@@ -8,6 +8,8 @@ import {
   Polyline,
 } from "react-leaflet";
 import L from "leaflet";
+// Import Reorder and useDragControls for the drag-and-drop functionality
+import { Reorder, useDragControls } from "motion/react";
 import redMarker from "../icons/red-marker.svg";
 import SearchIcon from "../icons/search.svg";
 
@@ -67,6 +69,38 @@ const STEP_ADVANCE_THRESHOLD = 20;
 
 // --- HELPER COMPONENTS ---
 
+// 1. Grip Icon (The visual handle for dragging)
+function GripIcon({ dragControls }) {
+  return (
+    <div 
+      className="drag-handle"
+      // Start drag ONLY when touching this icon
+      onPointerDown={(e) => dragControls.start(e)}
+      style={{ cursor: 'grab', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#a0a0a0' }}
+    >
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ opacity: 0.6 }}>
+        <path d="M2 6H18M2 10H18M2 14H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+// 2. Draggable Item Wrapper (Isolates drag logic to prevent crashes during re-renders)
+const DraggableItem = ({ value, children }) => {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={value}
+      dragListener={false} // Disable dragging on the whole row (only handle works)
+      dragControls={dragControls} 
+      style={{ position: "relative", marginBottom: 0 }}
+    >
+      {children(dragControls)} 
+    </Reorder.Item>
+  );
+};
+
 function ClickHandler({ onClick }) {
   useMapEvents({
     click(e) {
@@ -91,6 +125,24 @@ function RecenterOnUser({ userLocation }) {
 }
 
 // --- UTILITY FUNCTIONS ---
+
+function getCountryCodeFromTimezone() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz) return null;
+    if (tz.startsWith("Australia")) return "au";
+    if (tz.startsWith("Europe/London")) return "gb";
+    if (tz.startsWith("Europe/Berlin")) return "de";
+    if (tz.startsWith("Europe/Paris")) return "fr";
+    if (tz.startsWith("Asia/Kolkata")) return "in";
+    if (tz.startsWith("Asia/Tokyo")) return "jp";
+    if (tz.startsWith("Canada")) return "ca";
+    if (tz.startsWith("America")) return "us"; 
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
 
 function offsetPoint(lat, lng, offsetNorthMeters, offsetEastMeters) {
   const dLat = offsetNorthMeters / 111320;
@@ -212,20 +264,25 @@ export default function MapPage() {
   const [cardPage, setCardPage] = useState(0); 
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
 
-  // Mobile UI States
-  const [showCheckpoints, setShowCheckpoints] = useState(false);
-  
-  // --- SEARCH STATE ---
+  // --- SEARCH STATE (DESTINATION) ---
   const [searchQuery, setSearchQuery] = useState(""); 
   const [searchResults, setSearchResults] = useState([]); 
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // --- SEARCH STATE (ORIGIN) ---
+  const [originQuery, setOriginQuery] = useState("");
+  const [originResults, setOriginResults] = useState([]);
+  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
+
+  // --- DRAG ORDER STATE ---
+  const [fieldOrder, setFieldOrder] = useState(["origin", "destination"]);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [userLocation, setUserLocation] = useState(null);
   const [geoError, setGeoError] = useState("");
   
-  // NEW: Country Code State for strict filtering
+  // Country Code State for strict filtering
   const [userCountryCode, setUserCountryCode] = useState(null);
 
   const [originLabel, setOriginLabel] = useState("");
@@ -245,19 +302,41 @@ export default function MapPage() {
     }
   }, [selectedCheckpoint]);
 
-  // Sync search input with destination label
+  // Sync inputs with labels (reverse geocoding updates)
   useEffect(() => {
     if (destinationLabel && !showDropdown) {
       setSearchQuery(destinationLabel);
     }
-  }, [destinationLabel]);
+  }, [destinationLabel, showDropdown]);
 
-  // --- AUTOCOMPLETE LOGIC (UPDATED FOR STRICT LOCATION RELEVANCE) ---
+  useEffect(() => {
+    if (originLabel && !showOriginDropdown) {
+      setOriginQuery(originLabel);
+    }
+  }, [originLabel, showOriginDropdown]);
+
+  // --- REORDER HANDLER (Drag & Drop) ---
+  const handleReorder = (newOrder) => {
+    // 1. Update visual order instantly
+    setFieldOrder(newOrder);
+
+    // 2. If positions swapped
+    if (newOrder[0] !== fieldOrder[0]) {
+      // 3. Swap data logic
+      handleSwapLocations();
+
+      // 4. Reset visual order back to standard after delay to prevent confusion
+      setTimeout(() => {
+        setFieldOrder(["origin", "destination"]);
+      }, 300);
+    }
+  };
+
+  // --- DESTINATION SEARCH LOGIC ---
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
     
-    // Clear previous timeout
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
     if (query.length < 3) {
@@ -266,23 +345,21 @@ export default function MapPage() {
       return;
     }
 
-    // FAST DEBOUNCE (200ms)
     searchTimeoutRef.current = setTimeout(async () => {
         try {
             let biasParams = "";
-            // 1. STRICT COUNTRY FILTER
             let countryFilter = userCountryCode ? `&countrycodes=${userCountryCode}` : ""; 
 
-            // 2. LOCAL BOUNDING BOX BIAS
-            if (userLocation) {
-                // Create a ~50km bounding box around user
-                const minLon = userLocation.lng - 0.5;
-                const minLat = userLocation.lat - 0.5;
-                const maxLon = userLocation.lng + 0.5;
-                const maxLat = userLocation.lat + 0.5;
-                
-                // viewbox=left,top,right,bottom & bounded=1
-                biasParams = `&viewbox=${minLon},${maxLat},${maxLon},${minLat}&bounded=1`; 
+            // Bias towards user location or default center
+            const searchCenter = userLocation || defaultCenter;
+            
+            if (searchCenter) {
+                const minLon = searchCenter.lng - 0.5;
+                const minLat = searchCenter.lat - 0.5;
+                const maxLon = searchCenter.lng + 0.5;
+                const maxLat = searchCenter.lat + 0.5;
+                const isBounded = userLocation ? "&bounded=1" : "";
+                biasParams = `&viewbox=${minLon},${maxLat},${maxLon},${minLat}${isBounded}`; 
             }
 
             const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5${biasParams}${countryFilter}`;
@@ -301,7 +378,6 @@ export default function MapPage() {
     const newDest = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
     setDestination(newDest);
     
-    // Format label
     const name = result.address.road || result.display_name.split(",")[0];
     const suburb = result.address.suburb || result.address.city || result.address.state || "";
     const label = suburb ? `${name}, ${suburb}` : name;
@@ -313,6 +389,60 @@ export default function MapPage() {
     setShowDropdown(false);
     setSelectionStep("done");
     setSheetOpen(true);
+  };
+
+  // --- ORIGIN SEARCH LOGIC ---
+  const handleOriginSearch = (e) => {
+    const query = e.target.value;
+    setOriginQuery(query);
+    
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (query.length < 3) {
+      setOriginResults([]);
+      setShowOriginDropdown(false);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        let biasParams = "";
+        let countryFilter = userCountryCode ? `&countrycodes=${userCountryCode}` : "";
+
+        const searchCenter = userLocation || defaultCenter;
+
+        if (searchCenter) {
+             const minLon = searchCenter.lng - 0.5;
+             const minLat = searchCenter.lat - 0.5;
+             const maxLon = searchCenter.lng + 0.5;
+             const maxLat = searchCenter.lat + 0.5;
+             const isBounded = userLocation ? "&bounded=1" : "";
+             biasParams = `&viewbox=${minLon},${maxLat},${maxLon},${minLat}${isBounded}`;
+        }
+        
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5${biasParams}${countryFilter}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        setOriginResults(data);
+        setShowOriginDropdown(true);
+      } catch (err) {
+        console.error("Origin search failed", err);
+      }
+    }, 200);
+  };
+
+  const selectOriginResult = (result) => {
+    const newOrigin = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
+    setOrigin(newOrigin);
+    
+    const name = result.address.road || result.display_name.split(",")[0];
+    const suburb = result.address.suburb || result.address.city || "";
+    const label = suburb ? `${name}, ${suburb}` : name;
+    
+    setOriginLabel(label);
+    setOriginQuery(label);
+    setOriginResults([]);
+    setShowOriginDropdown(false);
   };
 
   // 1. Geolocation Hook
@@ -344,24 +474,31 @@ export default function MapPage() {
     };
   }, []);
 
-  // NEW: 1.5 Fetch Country Code once user location is known (for search bias)
+  // 1.5 Determine Country Code (Geo OR Timezone)
   useEffect(() => {
-    if (userLocation && !userCountryCode) {
-      const fetchCountryCode = async () => {
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${userLocation.lat}&lon=${userLocation.lng}&format=json`
-          );
-          const data = await res.json();
-          const code = data.address?.country_code?.toUpperCase();
-          if (code) {
-            setUserCountryCode(code);
-          }
-        } catch (err) {
-          console.error("Failed to get country code", err);
+    const setCodeFromGeo = async () => {
+      if (!userLocation) return;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${userLocation.lat}&lon=${userLocation.lng}&format=json`
+        );
+        const data = await res.json();
+        const code = data.address?.country_code?.toUpperCase();
+        if (code) {
+          setUserCountryCode(code);
         }
-      };
-      fetchCountryCode();
+      } catch (err) {
+        console.error("Failed to get country code", err);
+      }
+    };
+
+    if (userLocation) {
+      setCodeFromGeo();
+    } else if (!userCountryCode) {
+      const tzCode = getCountryCodeFromTimezone();
+      if (tzCode) {
+        setUserCountryCode(tzCode);
+      }
     }
   }, [userLocation, userCountryCode]);
 
@@ -447,186 +584,10 @@ export default function MapPage() {
     }
   }
 
-  // FALLBACK MANUAL SEARCH (Enter Key)
-  async function handleSearchSubmit(e) {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    // Use top suggestion if available
-    if (searchResults.length > 0) {
-        selectSearchResult(searchResults[0]);
-    } else {
-        try {
-            // 1. Country Filter
-            let countryFilter = userCountryCode ? `&countrycodes=${userCountryCode}` : "";
-            let biasParams = "";
-
-            // 2. Local Bias
-            if (userLocation) {
-                const minLon = userLocation.lng - 0.5;
-                const minLat = userLocation.lat - 0.5;
-                const maxLon = userLocation.lng + 0.5;
-                const maxLat = userLocation.lat + 0.5;
-                biasParams = `&viewbox=${minLon},${maxLat},${maxLon},${minLat}&bounded=1`;
-            }
-
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=1${biasParams}${countryFilter}`;
-            const res = await fetch(url);
-            const data = await res.json();
-
-            if (data && data.length > 0) {
-                const result = data[0];
-                const newDest = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
-                
-                setDestination(newDest);
-                setDestinationLabel(result.display_name.split(",")[0]);
-                setSelectionStep("done");
-                setSheetOpen(true);
-            } else {
-                setErrorMsg("Location not found. Try a specific place name.");
-            }
-        } catch (err) {
-            console.error("Search failed", err);
-            setErrorMsg("Search failed. Please check internet.");
-        }
-    }
-  }
-
-  function formatDistance(m) {
-    if (m == null) return "";
-    if (m < 1000) return `${m.toFixed(0)} m`;
-    return `${(m / 1000).toFixed(1)} km`;
-  }
-
-  function formatDuration(s) {
-    if (s == null) return "";
-    const minutes = Math.round(s / 60);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const rem = minutes % 60;
-    if (rem === 0) return `${hours} hr`;
-    return `${hours} hr ${rem} min`;
-  }
-
-  async function fetchSingleRoute(pointList) {
-    const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
-    const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Could not get route");
-
-    const data = await res.json();
-    if (!data.routes || !data.routes[0]) throw new Error("No route found");
-
-    const route = data.routes[0];
-    const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-    const distance = route.distance;
-    const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
-
-    const steps = route.legs[0].steps.map(step => ({
-      instruction: step.maneuver.type === 'depart' 
-        ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
-        : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
-      distance: step.distance,
-      maneuver: step.maneuver 
-    }));
-
-    return { coords, distance, duration: walkDurationSeconds, steps };
-  }
-
-  async function fetchRoutes(originPoint, destinationPoint) {
-    const routesList = [];
-    let idCounter = 0;
-
-    try {
-      const direct = await fetchSingleRoute([originPoint, destinationPoint]);
-      routesList.push({ id: idCounter++, ...direct });
-    } catch (e) {
-      console.warn("Direct route failed", e);
-    }
-
-    const midLat = (originPoint.lat + destinationPoint.lat) / 2;
-    const midLng = (originPoint.lng + destinationPoint.lng) / 2;
-    const mid = { lat: midLat, lng: midLng };
-
-    const viaCandidates = [
-      offsetPoint(mid.lat, mid.lng, 250, 0),
-      offsetPoint(mid.lat, mid.lng, -250, 0),
-      offsetPoint(mid.lat, mid.lng, 0, 250),
-      offsetPoint(mid.lat, mid.lng, 0, -250),
-    ];
-
-    for (const via of viaCandidates) {
-      if (routesList.length >= 4) break;
-      try {
-        const viaRoute = await fetchSingleRoute([originPoint, via, destinationPoint]);
-        routesList.push({ id: idCounter++, ...viaRoute });
-      } catch (e) {
-        console.warn("Via route failed");
-      }
-    }
-
-    if (!routesList.length) throw new Error("No route found");
-    return routesList;
-  }
-
-  // --- EVENT HANDLERS ---
-
-  async function handleMapClick(latlng) {
-    if (isWalking) return; 
-
-    const { lat, lng } = latlng;
-    setRoutes([]);
-    setActiveRouteIndex(0);
-    setCheckpoints([]);
-    setErrorMsg("");
-    setCheckpointPositions([]);
-
-    if (selectionStep === "destination" || selectionStep === "done") {
-      setDestination({ lat, lng });
-      const destLabel = await reverseGeocode(lat, lng);
-      setDestinationLabel(destLabel);
-      setOrigin(null);
-      setOriginLabel("");
-      setSelectionStep("chooseOrigin");
-      setSheetOpen(true);
-      return;
-    }
-
-    if (selectionStep === "originOnMap") {
-      setOrigin({ lat, lng });
-      const orgLabel = await reverseGeocode(lat, lng);
-      setOriginLabel(orgLabel);
-      setSelectionStep("done");
-      setSheetOpen(true);
-    }
-  }
-
-  function handleSwapLocations() {
-    if (!origin || !destination) return;
-    const newOrigin = destination;
-    const newDestination = origin;
-    const newOriginLabel = destinationLabel;
-    const newDestinationLabel = originLabel;
-    
-    setOrigin(newOrigin);
-    setDestination(newDestination);
-    setOriginLabel(newOriginLabel);
-    setDestinationLabel(newDestinationLabel);
-    setRoutes([]);
-    setActiveRouteIndex(0);
-    setCheckpoints([]);
-    setCheckpointPositions([]);
-    setErrorMsg("");
-    setSelectionStep("done");
-    setSheetOpen(true);
-  }
-
   async function handleUseMyLocation() {
-    if (!destination) {
-      setErrorMsg("Choose where you want to go first.");
-      return;
-    }
+    setOriginQuery("Locating...");
+    setShowOriginDropdown(false);
+
     let loc = userLocation;
     if (!loc) {
       if (!("geolocation" in navigator)) {
@@ -644,28 +605,20 @@ export default function MapPage() {
         setUserLocation(loc);
       } catch (err) {
         setErrorMsg("Could not access your location.");
+        setOriginQuery("");
         return;
       }
     }
     setOrigin(loc);
     const label = await reverseGeocode(loc.lat, loc.lng);
     setOriginLabel(label);
+    setOriginQuery(label);
     setSelectionStep("done");
     setErrorMsg("");
     setSheetOpen(true);
   }
 
-  function handleChooseStartOnMap() {
-    if (!destination) {
-      setErrorMsg("Choose where you want to go first.");
-      return;
-    }
-    setSelectionStep("originOnMap");
-    setErrorMsg("");
-    setSheetOpen(true);
-  }
-
-  // 1. Find routes and show on map
+  // Find routes and show on map
   async function handleSubmit(e) {
     e.preventDefault();
     if (!origin || !destination) {
@@ -710,7 +663,6 @@ export default function MapPage() {
     }
   }
 
-  // 2. Start the walk
   function handleStartNavigation() {
     if (routes.length > 0 && routes[activeRouteIndex]) {
       setIsWalking(true);
@@ -736,6 +688,123 @@ export default function MapPage() {
     setSheetOpen(false);
     setSearchQuery("");
     setSearchResults([]);
+    setOriginQuery("");
+    setOriginResults([]);
+  }
+
+  // --- EVENT HANDLERS ---
+  async function handleMapClick(latlng) {
+    if (isWalking) return; 
+
+    const { lat, lng } = latlng;
+    setRoutes([]);
+    setActiveRouteIndex(0);
+    setCheckpoints([]);
+    setErrorMsg("");
+    setCheckpointPositions([]);
+
+    if (selectionStep === "destination" || selectionStep === "done") {
+      setDestination({ lat, lng });
+      const destLabel = await reverseGeocode(lat, lng);
+      setDestinationLabel(destLabel);
+      setOrigin(null);
+      setOriginLabel("");
+      setSelectionStep("chooseOrigin");
+      setSheetOpen(true);
+      return;
+    }
+
+    if (selectionStep === "originOnMap") {
+      setOrigin({ lat, lng });
+      const orgLabel = await reverseGeocode(lat, lng);
+      setOriginLabel(orgLabel);
+      setSelectionStep("done");
+      setSheetOpen(true);
+    }
+  }
+
+  function handleSwapLocations() {
+    const newOrigin = destination;
+    const newDestination = origin;
+    const newOriginLabel = destinationLabel;
+    const newDestinationLabel = originLabel;
+    
+    setOrigin(newOrigin);
+    setDestination(newDestination);
+    setOriginLabel(newOriginLabel);
+    setDestinationLabel(newDestinationLabel);
+    
+    setRoutes([]);
+    setActiveRouteIndex(0);
+    setCheckpoints([]);
+    setCheckpointPositions([]);
+    setErrorMsg("");
+    setSelectionStep("done");
+  }
+
+  // Fetch helpers (OSRM)
+  function formatDistance(m) {
+    if (m == null) return "";
+    if (m < 1000) return `${m.toFixed(0)} m`;
+    return `${(m / 1000).toFixed(1)} km`;
+  }
+
+  async function fetchSingleRoute(pointList) {
+    const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
+    const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Could not get route");
+
+    const data = await res.json();
+    if (!data.routes || !data.routes[0]) throw new Error("No route found");
+
+    const route = data.routes[0];
+    const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+    const distance = route.distance;
+    const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
+
+    const steps = route.legs[0].steps.map(step => ({
+      instruction: step.maneuver.type === 'depart' 
+        ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
+        : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
+      distance: step.distance,
+      maneuver: step.maneuver 
+    }));
+
+    return { coords, distance, duration: walkDurationSeconds, steps };
+  }
+
+  async function fetchRoutes(originPoint, destinationPoint) {
+    const routesList = [];
+    let idCounter = 0;
+
+    try {
+      const direct = await fetchSingleRoute([originPoint, destinationPoint]);
+      routesList.push({ id: idCounter++, ...direct });
+    } catch (e) {
+      console.warn("Direct route failed", e);
+    }
+
+    const midLat = (originPoint.lat + destinationPoint.lat) / 2;
+    const midLng = (originPoint.lng + destinationPoint.lng) / 2;
+    const viaCandidates = [
+      offsetPoint(midLat, midLng, 250, 0),
+      offsetPoint(midLat, midLng, -250, 0),
+      offsetPoint(midLat, midLng, 0, 250),
+      offsetPoint(midLat, midLng, 0, -250),
+    ];
+
+    for (const via of viaCandidates) {
+      if (routesList.length >= 4) break;
+      try {
+        const viaRoute = await fetchSingleRoute([originPoint, via, destinationPoint]);
+        routesList.push({ id: idCounter++, ...viaRoute });
+      } catch (e) {}
+    }
+
+    if (!routesList.length) throw new Error("No route found");
+    return routesList;
   }
 
   // --- RENDER HELPERS ---
@@ -746,7 +815,6 @@ export default function MapPage() {
     const details = POSE_DETAILS[poseName] || POSE_DETAILS["default"];
 
     if (cardPage === 0) {
-      // PAGE 1: INSTRUCTION + GIF
       return (
         <>
           <div className="cp-gif-placeholder">
@@ -762,7 +830,6 @@ export default function MapPage() {
         </>
       );
     } else if (cardPage === 1) {
-      // PAGE 2: BENEFITS
       return (
         <>
           <h3 style={{fontSize: '16px', marginBottom: '10px', color: '#1f3d1f'}}>Benefits</h3>
@@ -777,7 +844,6 @@ export default function MapPage() {
         </>
       );
     } else {
-      // PAGE 3: REFLECTION
       return (
         <>
           <div className="cp-question-container">
@@ -799,11 +865,12 @@ export default function MapPage() {
   };
 
   const activeRoute = routes[activeRouteIndex];
-  const sheetSummaryText = isWalking ? "Current Navigation" : (activeRoute ? `${checkpoints.length} checkpoints` : "Plan your yoga walk");
+  
+  // --- HEADER TEXT LOGIC ---
+  const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
 
   return (
     <div className="mapPageRoot">
-      
       <div className="mapWrapper">
         <MapContainer
           center={defaultCenter}
@@ -844,7 +911,6 @@ export default function MapPage() {
             const isActive = idx === activeRouteIndex;
             const mid = route.coords[Math.floor(route.coords.length / 2)];
             
-            // Offset logic for labels
             const latOffset = (idx % 2 === 0 ? 1 : -1) * (idx * 0.0003); 
             const labelPos = offsetPoint(mid.lat, mid.lng, latOffset * 111320, 0);
 
@@ -869,7 +935,6 @@ export default function MapPage() {
               </div>
             );
           })}
-
         </MapContainer>
       </div>
 
@@ -928,7 +993,6 @@ export default function MapPage() {
                     ›
                 </button>
             )}
-
           </div>
         </div>
       )}
@@ -946,51 +1010,17 @@ export default function MapPage() {
           <div
             className="mapCheckpointSummaryBar"
             onClick={(e) => {
-               // Only toggle if clicked handle/empty space, NOT input
-               if(e.target.tagName !== 'INPUT' && !e.target.closest('.search-results-dropdown')) {
+               if(e.target.tagName !== 'INPUT' && !e.target.closest('.timeline-dropdown')) {
                    setSheetOpen(!sheetOpen); 
                }
             }}
           >
-            {!isWalking ? (
-                <div className="map-search-container" style={{width: '100%', position: 'relative'}}>
-                    <form className="map-search-form" onSubmit={handleSearchSubmit}>
-                        <div className="map-search-pill">
-                            <img src={SearchIcon} className="map-search-icon" alt="Search" />
-                            <input 
-                                type="text" 
-                                className="map-search-input"
-                                placeholder="Where to? (e.g. Hyde Park)"
-                                value={searchQuery}
-                                onChange={handleSearchChange}
-                                onClick={(e) => { e.stopPropagation(); setSheetOpen(true); }}
-                            />
-                        </div>
-                    </form>
-
-                    {/* DROPDOWN RESULTS */}
-                    {showDropdown && searchResults.length > 0 && (
-                        <div className="search-results-dropdown">
-                            {searchResults.map((result, idx) => (
-                                <div key={idx} className="search-result-item" onClick={(e) => { e.stopPropagation(); selectSearchResult(result); }}>
-                                    <div className="search-result-icon">📍</div>
-                                    <div className="search-result-text">
-                                        <span className="search-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
-                                        <span className="search-sub-text">{result.display_name}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            ) : (
-                <span className="mapCheckpointSummaryText">{sheetSummaryText}</span>
-            )}
+            <span className="mapCheckpointSummaryText">{sheetSummaryText}</span>
           </div>
 
           <div className="mapCheckpointBody">
-            {/* 1. ACTIVE WALK MODE */}
             {isWalking && activeRoute ? (
+              /* 1. ACTIVE WALK MODE */
               <div className="activeWalkContainer">
                 <div className="activeWalkHeader">Let's Go!</div>
                 <div className="directionCard">
@@ -1002,6 +1032,7 @@ export default function MapPage() {
                   <button className="btn-nav-next" onClick={advanceStep}>Next Step</button>
                   <button className="btn-nav-end" onClick={() => { setIsWalking(false); setSelectionStep("done"); }}>End Walk</button>
                 </div>
+                {/* Developer Tools */}
                 <div style={{ marginTop: '20px', padding: '10px', background: '#f8d7da', borderRadius: '12px', border: '1px solid #f5c6cb' }}>
                   <p style={{ margin: '0 0 8px', color: '#721c24', fontSize: '12px', fontWeight: 'bold' }}>🕵️ Developer Tools</p>
                   <button
@@ -1037,44 +1068,70 @@ export default function MapPage() {
               <>
                 {geoError && <p className="mapGeoErrorInline">{geoError}</p>}
                 
+                {/* --- 1. DIRECTIONS (Draggable Timeline) --- */}
                 <div className="abstract-timeline">
                     <div className="timeline-line"></div>
                     <div className="timeline-point start"></div>
                     <div className="timeline-point end"></div>
-                    <div className="location-row-abstract">
-                        <div className="location-pill-abstract" onClick={handleUseMyLocation}>
-                            {origin ? (originLabel || "My Location") : <span className="empty-text">From: Use my current location</span>}
-                        </div>
-                    </div>
-                    <button type="button" className="swap-btn-abstract" onClick={handleSwapLocations}>⇄</button>
-                    {/* Destination Display (Read Only - Search handles this now) */}
-                    <div className="location-row-abstract">
-                        <div className="location-pill-abstract" onClick={() => {}}>
-                            {destination ? (destinationLabel || "Custom Pin") : <span className="empty-text">Destination set above</span>}
-                        </div>
-                    </div>
+
+                    {/* DRAGGABLE LIST */}
+                    <Reorder.Group 
+                      axis="y" 
+                      values={fieldOrder} 
+                      onReorder={handleReorder} 
+                      className="reorder-list"
+                      style={{listStyle: "none", padding: 0, margin: 0}}
+                    >
+                      {fieldOrder.map((item) => (
+                        <DraggableItem key={item} value={item}>
+                          {(dragControls) => (
+                            <div className="location-row-abstract">
+                              <div className="location-pill-abstract">
+                                <input 
+                                  type="text" 
+                                  className="timeline-input"
+                                  placeholder={item === "origin" ? "Choose starting point" : "Where to?"}
+                                  value={item === "origin" ? originQuery : searchQuery}
+                                  onChange={item === "origin" ? handleOriginSearch : handleSearchChange}
+                                  onFocus={() => item === "origin" ? setShowOriginDropdown(true) : setShowDropdown(true)}
+                                  onBlur={() => setTimeout(() => item === "origin" ? setShowOriginDropdown(false) : setShowDropdown(false), 200)}
+                                />
+                                {/* Grip Handle */}
+                                <GripIcon dragControls={dragControls} />
+                                
+                                {/* DROPDOWNS */}
+                                {item === "origin" && showOriginDropdown && (
+                                  <div className="timeline-dropdown">
+                                    <div className="dropdown-option-special" onClick={handleUseMyLocation}>
+                                      <span>⌖</span> Use my current location
+                                    </div>
+                                    {originResults.map((result, idx) => (
+                                      <div key={idx} className="dropdown-option" onClick={() => selectOriginResult(result)}>
+                                        <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
+                                        <span className="dropdown-sub-text">{result.display_name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {item === "destination" && showDropdown && (
+                                  <div className="timeline-dropdown">
+                                    {searchResults.map((result, idx) => (
+                                      <div key={idx} className="dropdown-option" onClick={() => selectSearchResult(result)}>
+                                        <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
+                                        <span className="dropdown-sub-text">{result.display_name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </DraggableItem>
+                      ))}
+                    </Reorder.Group>
                 </div>
 
-                {/* --- MOBILE: Horizontal Route Choices --- */}
-                {routes.length > 1 && (
-                  <div className="routeChoices">
-                    {routes.map((route, idx) => (
-                      <button
-                        key={route.id}
-                        type="button"
-                        className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
-                        onClick={() => {
-                          setActiveRouteIndex(idx);
-                          updateCheckpointPositionsForRoute(route, Number(checkpointCount));
-                        }}
-                      >
-                        Route {idx + 1} ({formatDistance(route.distance)})
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Checkpoint Controls */}
+                {/* --- 2. CHECKPOINTS (Moved Up) --- */}
                 <div className="checkpoint-control-abstract">
                     <div className="checkpoint-header">
                         <span className="checkpoint-label">🧘 Yoga Checkpoints</span>
@@ -1103,38 +1160,26 @@ export default function MapPage() {
                     </div>
                 </div>    
 
-                {/* --- MOBILE: Collapsible Checkpoint List --- */}
-                {checkpoints.length > 0 && (
-                  <>
-                    <button 
-                      type="button" 
-                      className="checkpoint-toggle-btn"
-                      onClick={() => setShowCheckpoints(!showCheckpoints)}
-                    >
-                      {showCheckpoints ? "Hide Checkpoint Details" : `View ${checkpoints.length} Checkpoints`}
-                      <span className={`checkpoint-toggle-icon ${showCheckpoints ? 'open' : ''}`}>▼</span>
-                    </button>
-
-                    <ul className={`mapCheckpointList ${showCheckpoints ? 'expanded' : ''}`}>
-                      {checkpoints.map((cp, idx) => {
-                        const pos = checkpointPositions[idx];
-                        return (
-                          <li key={cp.id ?? idx} className="mapCheckpointItem">
-                            <span className="mapCheckpointNumber">{idx + 1}</span>
-                            <div className="mapCheckpointContent">
-                              <div className="mapCheckpointLineMain">{cp.exercise.name}</div>
-                              <div className="mapCheckpointLineSub">
-                                {pos ? `${formatDistance(pos.distanceFromStart)} from start` : `Checkpoint ${idx + 1}`}
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
+                {/* --- 3. ROUTES (Moved Down) --- */}
+                {routes.length > 1 && (
+                  <div className="routeChoices">
+                    {routes.map((route, idx) => (
+                      <button
+                        key={route.id}
+                        type="button"
+                        className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
+                        onClick={() => {
+                          setActiveRouteIndex(idx);
+                          updateCheckpointPositionsForRoute(route, Number(checkpointCount));
+                        }}
+                      >
+                        Route {idx + 1} ({formatDistance(route.distance)})
+                      </button>
+                    ))}
+                  </div>
                 )}
 
-                {/* Action Buttons */}
+                {/* --- 4. ACTION BUTTONS --- */}
                 <form onSubmit={handleSubmit}>
                   <div className="action-buttons-abstract">
                     {routes.length > 0 ? (
