@@ -376,46 +376,245 @@
   font-size: 13px; color: #c0392b; background: #fff0f0; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; text-align: center;
 }
 
-
 /* =========================================
-   CHECKPOINT POPUP & ACTIVE WALK
+   CHECKPOINT DETAIL OVERLAY (Frosted & Neat)
    ========================================= */
 
 .checkpoint-overlay-backdrop {
-  position: absolute; inset: 0; z-index: 2000;
-  background: rgba(0,0,0,0.2);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-  animation: fadeIn 0.2s ease;
+  position: absolute;
+  inset: 0;
+  z-index: 2000;
+  /* Darker blur backdrop for focus */
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  
+  /* Smooth Fade In */
+  animation: fadeIn 0.2s ease-out;
 }
 
 .checkpoint-detail-card {
-  background: #fff; width: 100%; max-width: 320px;
-  border-radius: 24px; padding: 24px 44px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative;
-  display: flex; flex-direction: column;
+  /* Frosted Glass Effect */
+  background: rgba(255, 255, 255, 0.92); 
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  
+  width: 100%;
+  max-width: 340px;
+  border-radius: 32px; /* Super rounded corners */
+  padding: 28px;
+  
+  /* Soft, deep shadow to lift it off the map */
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  
+  /* Pop-in animation */
+  animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.cp-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.cp-detail-badge { background: #e9f7dd; color: #0a6f00; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 99px; }
-.cp-close-btn { background: none; border: none; font-size: 24px; color: #888; cursor: pointer; padding: 0; }
-.cp-detail-title { font-size: 20px; font-weight: 700; color: #1f3d1f; margin: 0 0 10px; }
-.cp-detail-meta { display: flex; gap: 8px; margin-bottom: 16px; }
-.cp-meta-item { font-size: 11px; color: #526b57; background: #f4f8f1; padding: 2px 6px; border-radius: 6px; }
-.cp-gif-placeholder { width: 100%; height: 160px; background: #f0f0f0; border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.cp-gif-img { width: 100%; height: 100%; object-fit: cover; }
-.cp-pagination { display: flex; justify-content: center; gap: 4px; margin-bottom: 16px; }
-.cp-dot { width: 6px; height: 6px; border-radius: 50%; background: #ddd; }
-.cp-dot.active { background: #61b329; width: 16px; border-radius: 99px; }
+/* Header Row */
+.cp-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
 
+.cp-detail-badge {
+  background: #e9f7dd;
+  color: #0a6f00;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 99px;
+}
+
+/* Improved Close Button (Circle) */
+.cp-close-btn {
+  width: 32px;
+  height: 32px;
+  background: #f2f2f7; /* Light grey */
+  border: none;
+  border-radius: 50%;
+  color: #8e8e93;
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding-bottom: 2px; /* Optical center */
+}
+
+.cp-close-btn:hover {
+  background: #e5e5ea;
+  color: #1c1c1e;
+}
+
+/* Typography */
+.cp-detail-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1f3d1f;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.cp-detail-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.cp-meta-item {
+  font-size: 12px;
+  font-weight: 600;
+  color: #526b57;
+  background: #f4f8f1;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+/* Image/GIF Area */
+.cp-gif-placeholder {
+  width: 100%;
+  height: 180px;
+  background: #f2f2f7;
+  border-radius: 20px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.cp-gif-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Navigation Arrows (Sides) */
 .cp-side-btn {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  width: 32px; height: 32px; border-radius: 50%; background: #f4f8f1;
-  color: #61b329; font-size: 20px; display: flex; align-items: center; justify-content: center;
-  border: none; cursor: pointer;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  color: #61b329;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #f0f0f0;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.2s;
 }
-.cp-side-btn.left { left: 8px; }
-.cp-side-btn.right { right: 8px; }
-.cp-complete-block-btn { width: 100%; background: #61b329; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+
+.cp-side-btn:active { transform: translateY(-50%) scale(0.9); }
+.cp-side-btn.left { left: -16px; }
+.cp-side-btn.right { right: -16px; }
+
+/* Pagination Dots */
+.cp-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.cp-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #d1d1d6;
+  transition: all 0.3s;
+}
+
+.cp-dot.active {
+  background: #61b329;
+  width: 24px; /* elongated dot */
+  border-radius: 99px;
+}
+
+/* Action Button */
+.cp-complete-block-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #61b329 0%, #4ca820 100%);
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 12px;
+  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.3);
+  transition: transform 0.1s;
+}
+
+.cp-complete-block-btn:active {
+  transform: scale(0.98);
+}
+
+@keyframes popUp {
+  0% { transform: scale(0.9) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* =========================================
+   SCROLLABLE CHECKPOINT CONTENT
+   ========================================= */
+
+/* The Window: mask the content */
+.cp-slides-viewport {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  
+  /* CRITICAL: Enables the "Page by Page" snap feel */
+  scroll-snap-type: x mandatory; 
+  scroll-behavior: smooth;
+  
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE */
+}
+
+.cp-slides-viewport::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* The Slide: Each page takes full width */
+.cp-slide {
+  min-width: 100%; /* Force full width */
+  scroll-snap-align: center; /* Snap to center */
+  padding: 4px; /* Tiny buffer */
+  box-sizing: border-box;
+}
+
+/* Remove old side button styles if you wish, or just leave them unused */
+.cp-side-btn { display: none !important; }
 
 .activeWalkContainer { text-align: center; padding-bottom: 10px; animation: fadeIn 0.3s ease; }
 

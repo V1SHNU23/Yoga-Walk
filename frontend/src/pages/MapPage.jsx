@@ -10,7 +10,7 @@ import {
 import L from "leaflet";
 // Import Reorder and useDragControls for the drag-and-drop functionality
 import { Reorder, useDragControls } from "motion/react";
-import redMarker from "../icons/red-marker.svg"; // Keeping import just in case, but unused now
+import redMarker from "../icons/red-marker.svg"; 
 import SearchIcon from "../icons/search.svg";
 
 // --- STATIC DATA FOR CARD CONTENT ---
@@ -265,13 +265,18 @@ export default function MapPage() {
   
   // Overlay State (Checkpoint Details)
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
-  const [cardPage, setCardPage] = useState(0); 
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
+  
+  // --- SWIPEABLE CARD STATE ---
+  const [activeSlide, setActiveSlide] = useState(0); 
+  const slidesRef = useRef(null); 
 
   // --- LOCATION & HEADING (COMPASS) STATE ---
   const [userLocation, setUserLocation] = useState(null);
   const [heading, setHeading] = useState(0); // 0-360 degrees
   const [geoError, setGeoError] = useState("");
+  // Flag to suppress Origin Marker if user chose "Use my current location"
+  const [isOriginCurrentLocation, setIsOriginCurrentLocation] = useState(false);
 
   // --- SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState(""); 
@@ -307,9 +312,13 @@ export default function MapPage() {
   const lastStepChangeRef = useRef(Date.now());
   const searchTimeoutRef = useRef(null);
 
+  // --- RESET SLIDE SCROLL ON OPEN ---
   useEffect(() => {
     if (selectedCheckpoint) {
-      setCardPage(0);
+      setActiveSlide(0);
+      if (slidesRef.current) {
+        slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
+      }
     }
   }, [selectedCheckpoint]);
 
@@ -325,6 +334,25 @@ export default function MapPage() {
       setOriginQuery(originLabel);
     }
   }, [originLabel, showOriginDropdown]);
+
+  // --- SLIDE SCROLL HANDLER (Syncs dots with swipe) ---
+  const handleSlideScroll = () => {
+    if (slidesRef.current) {
+      const { scrollLeft, clientWidth } = slidesRef.current;
+      const pageIndex = Math.round(scrollLeft / clientWidth);
+      setActiveSlide(pageIndex);
+    }
+  };
+
+  // --- PROGRAMMATIC SCROLL FOR DOT CLICKS (PC Support) ---
+  const scrollToSlide = (index) => {
+    if (slidesRef.current) {
+      slidesRef.current.scrollTo({
+        left: slidesRef.current.clientWidth * index,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // --- DRAG SCROLL HANDLERS ---
   const startDragging = (e) => {
@@ -356,7 +384,7 @@ export default function MapPage() {
     }
   };
 
-  // --- SEARCH LOGIC (100ms Debounce) ---
+  // --- SEARCH LOGIC ---
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -457,6 +485,7 @@ export default function MapPage() {
     setOriginQuery(label);
     setOriginResults([]);
     setShowOriginDropdown(false);
+    setIsOriginCurrentLocation(false); 
   };
 
   // --- LOCATION & COMPASS LOGIC ---
@@ -466,13 +495,11 @@ export default function MapPage() {
       return;
     }
 
-    // 1. Position Tracking
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setUserLocation({ lat: latitude, lng: longitude });
         setGeoError("");
-        // Fallback heading if deviceorientation not available
         if (pos.coords.heading && !heading) {
            setHeading(pos.coords.heading);
         }
@@ -484,9 +511,7 @@ export default function MapPage() {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 1000 }
     );
 
-    // 2. Compass Tracking (Device Orientation)
     const handleOrientation = (e) => {
-      // iOS: webkitCompassHeading, Android: alpha (usually)
       let compass = e.webkitCompassHeading || Math.abs(e.alpha - 360);
       if(compass) setHeading(compass);
     };
@@ -510,7 +535,7 @@ export default function MapPage() {
         <div class="user-puck-dot"></div>
       `,
       iconSize: [40, 40],
-      iconAnchor: [20, 20], // Center exactly
+      iconAnchor: [20, 20], 
     });
   };
 
@@ -543,6 +568,8 @@ export default function MapPage() {
     if (!isWalking || !userLocation || !routes[activeRouteIndex]) return;
 
     const activeRoute = routes[activeRouteIndex];
+    
+    if (!activeRoute.steps || activeRoute.steps.length === 0) return;
     if (currentStep >= activeRoute.steps.length - 1) return;
 
     const targetStep = activeRoute.steps[currentStep + 1];
@@ -586,7 +613,7 @@ export default function MapPage() {
 
   function advanceStep() {
     const activeRoute = routes[activeRouteIndex];
-    if (currentStep < activeRoute.steps.length - 1) {
+    if (activeRoute && activeRoute.steps && currentStep < activeRoute.steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     }
   }
@@ -644,6 +671,7 @@ export default function MapPage() {
       }
     }
     setOrigin(loc);
+    setIsOriginCurrentLocation(true); 
     const label = await reverseGeocode(loc.lat, loc.lng);
     setOriginLabel(label);
     setOriginQuery(label);
@@ -713,6 +741,7 @@ export default function MapPage() {
 
   function handleReset() {
     setOrigin(null);
+    setIsOriginCurrentLocation(false);
     setDestination(null);
     setCheckpoints([]);
     setRoutes([]);
@@ -736,30 +765,38 @@ export default function MapPage() {
     if (isWalking) return; 
 
     const { lat, lng } = latlng;
-    setRoutes([]);
-    setActiveRouteIndex(0);
-    setCheckpoints([]);
-    setErrorMsg("");
-    setCheckpointPositions([]);
 
-    if (selectionStep === "destination" || selectionStep === "done") {
-      setDestination({ lat, lng });
-      const destLabel = await reverseGeocode(lat, lng);
-      setDestinationLabel(destLabel);
-      setOrigin(null);
-      setOriginLabel("");
-      setSelectionStep("chooseOrigin");
+    if (selectionStep === "originOnMap") {
+      setOrigin({ lat, lng });
+      setIsOriginCurrentLocation(false); 
+      const orgLabel = await reverseGeocode(lat, lng);
+      setOriginLabel(orgLabel);
+      if (destination) {
+        calculateRoute({ lat, lng }, destination);
+      }
+      setSelectionStep("done");
       setSheetOpen(true);
       return;
     }
 
-    if (selectionStep === "originOnMap") {
-      setOrigin({ lat, lng });
-      const orgLabel = await reverseGeocode(lat, lng);
-      setOriginLabel(orgLabel);
-      setSelectionStep("done");
-      setSheetOpen(true);
+    setDestination({ lat, lng });
+    const destLabel = await reverseGeocode(lat, lng);
+    setDestinationLabel(destLabel);
+
+    setRoutes([]);
+    setActiveRouteIndex(0);
+    setCheckpoints([]);
+    setCheckpointPositions([]);
+    setErrorMsg("");
+
+    if (origin) {
+        calculateRoute(origin, { lat, lng });
+        setSelectionStep("done");
+    } else {
+        setSelectionStep("chooseOrigin");
     }
+    
+    setSheetOpen(true);
   }
 
   function handleSwapLocations() {
@@ -772,6 +809,8 @@ export default function MapPage() {
     setDestination(newDestination);
     setOriginLabel(newOriginLabel);
     setDestinationLabel(newDestinationLabel);
+    
+    setIsOriginCurrentLocation(false); 
     
     if (newOrigin && newDestination) {
         calculateRoute(newOrigin, newDestination);
@@ -851,62 +890,6 @@ export default function MapPage() {
   }
 
   // --- RENDER HELPERS ---
-  const getCheckpointContent = () => {
-    if (!selectedCheckpoint) return null;
-    
-    const poseName = selectedCheckpoint.exercise?.name || "Yoga Pose";
-    const details = POSE_DETAILS[poseName] || POSE_DETAILS["default"];
-
-    if (cardPage === 0) {
-      return (
-        <>
-          <div className="cp-gif-placeholder">
-            {details.gif ? (
-                <img src={details.gif} alt={poseName} className="cp-gif-img" />
-            ) : (
-                <span className="cp-gif-label">GIF Placeholder</span>
-            )}
-          </div>
-          <p className="cp-detail-desc">
-            Stop and perform this pose. Take a deep breath and enjoy the surroundings!
-          </p>
-        </>
-      );
-    } else if (cardPage === 1) {
-      return (
-        <>
-          <h3 style={{fontSize: '16px', marginBottom: '10px', color: '#1f3d1f'}}>Benefits</h3>
-          <ul className="cp-benefits-list">
-            {details.benefits.map((benefit, i) => (
-                <li key={i} className="cp-benefit-item">
-                    <span className="cp-benefit-icon">✓</span>
-                    {benefit}
-                </li>
-            ))}
-          </ul>
-        </>
-      );
-    } else {
-      return (
-        <>
-          <div className="cp-question-container">
-            <span className="cp-question-icon">🤔</span>
-            <p className="cp-question-text">{details.question}</p>
-          </div>
-          <p className="cp-detail-desc" style={{textAlign: 'center'}}>
-            Take a moment to reflect before continuing your walk.
-          </p>
-          <button 
-            className="cp-complete-block-btn"
-            onClick={() => setSelectedCheckpoint(null)}
-          >
-            Complete Checkpoint
-          </button>
-        </>
-      );
-    }
-  };
-
   const activeRoute = routes[activeRouteIndex];
   const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
 
@@ -935,7 +918,9 @@ export default function MapPage() {
             />
           )}
 
-          {origin && <Marker position={origin} />}
+          {/* SHOW ORIGIN MARKER (ONLY IF NOT CURRENT LOCATION) */}
+          {origin && !isOriginCurrentLocation && <Marker position={origin} />}
+          
           {destination && <Marker position={destination} />}
 
           {/* CHECKPOINT MARKERS */}
@@ -1012,20 +997,12 @@ export default function MapPage() {
         </MapContainer>
       </div>
 
-      {/* --- CHECKPOINT DETAIL OVERLAY --- */}
+      {/* --- SWIPEABLE CHECKPOINT DETAIL OVERLAY --- */}
       {selectedCheckpoint && (
         <div className="checkpoint-overlay-backdrop" onClick={() => setSelectedCheckpoint(null)}>
           <div className="checkpoint-detail-card" onClick={(e) => e.stopPropagation()}>
-            {/* SIDE BUTTON: PREV */}
-            {cardPage > 0 && (
-                <button 
-                    className="cp-side-btn left"
-                    onClick={() => setCardPage(prev => prev - 1)}
-                >
-                    ‹
-                </button>
-            )}
-
+            
+            {/* HEADER */}
             <div className="cp-detail-header">
               <span className="cp-detail-badge">Checkpoint {selectedCheckpoint.index}</span>
               <button className="cp-close-btn" onClick={() => setSelectedCheckpoint(null)}>×</button>
@@ -1034,39 +1011,75 @@ export default function MapPage() {
             <h2 className="cp-detail-title">
               {selectedCheckpoint.exercise?.name || "Yoga Pose"}
             </h2>
-            
-            {cardPage === 0 && (
+
+            {/* --- SCROLLABLE CONTENT AREA --- */}
+            <div 
+              className="cp-slides-viewport" 
+              ref={slidesRef} 
+              onScroll={handleSlideScroll}
+            >
+              {/* SLIDE 1: OVERVIEW */}
+              <div className="cp-slide">
                 <div className="cp-detail-meta">
-                    <span className="cp-meta-item">
-                        ⏱ {selectedCheckpoint.exercise?.duration || "30 sec"}
-                    </span>
-                    <span className="cp-meta-item">
-                        🧘 Beginner Friendly
-                    </span>
+                  <span className="cp-meta-item">⏱ {selectedCheckpoint.exercise?.duration || "30 sec"}</span>
+                  <span className="cp-meta-item">🧘 Beginner Friendly</span>
                 </div>
-            )}
+                <div className="cp-gif-placeholder">
+                  {POSE_DETAILS[selectedCheckpoint.exercise?.name]?.gif ? (
+                    <img src={POSE_DETAILS[selectedCheckpoint.exercise?.name].gif} alt="Pose" className="cp-gif-img" />
+                  ) : (
+                    <span className="cp-gif-label">GIF Placeholder</span>
+                  )}
+                </div>
+                <p className="cp-detail-desc">
+                  Stop and perform this pose. Take a deep breath and enjoy the surroundings!
+                </p>
+              </div>
 
-            {/* Pagination Dots */}
-            <div className="cp-pagination">
-                <div className={`cp-dot ${cardPage === 0 ? 'active' : ''}`} />
-                <div className={`cp-dot ${cardPage === 1 ? 'active' : ''}`} />
-                <div className={`cp-dot ${cardPage === 2 ? 'active' : ''}`} />
-            </div>
+              {/* SLIDE 2: BENEFITS */}
+              <div className="cp-slide">
+                <h3 style={{fontSize: '18px', marginBottom: '16px', color: '#1f3d1f'}}>Benefits</h3>
+                <ul className="cp-benefits-list">
+                  {(POSE_DETAILS[selectedCheckpoint.exercise?.name] || POSE_DETAILS["default"]).benefits.map((benefit, i) => (
+                    <li key={i} className="cp-benefit-item">
+                      <span className="cp-benefit-icon">✓</span>
+                      {benefit}
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-            {/* Dynamic Body */}
-            <div style={{ minHeight: '180px' }}>
-                {getCheckpointContent()}
-            </div>
-
-            {/* SIDE BUTTON: NEXT */}
-            {cardPage < 2 && (
+              {/* SLIDE 3: REFLECTION */}
+              <div className="cp-slide">
+                <div className="cp-question-container">
+                  <span className="cp-question-icon">🤔</span>
+                  <p className="cp-question-text">
+                    {(POSE_DETAILS[selectedCheckpoint.exercise?.name] || POSE_DETAILS["default"]).question}
+                  </p>
+                </div>
+                <p className="cp-detail-desc" style={{textAlign: 'center', marginTop: '12px'}}>
+                  Take a moment to reflect before continuing your walk.
+                </p>
                 <button 
-                    className="cp-side-btn right"
-                    onClick={() => setCardPage(prev => prev + 1)}
+                  className="cp-complete-block-btn"
+                  onClick={() => setSelectedCheckpoint(null)}
                 >
-                    ›
+                  Complete Checkpoint
                 </button>
-            )}
+              </div>
+            </div>
+
+            {/* PAGINATION DOTS (Clickable for PC) */}
+            <div className="cp-pagination">
+                {[0, 1, 2].map((i) => (
+                    <div 
+                        key={i}
+                        className={`cp-dot ${activeSlide === i ? 'active' : ''}`} 
+                        onClick={() => scrollToSlide(i)}
+                        style={{ cursor: 'pointer', padding: '4px' }}
+                    />
+                ))}
+            </div>
           </div>
         </div>
       )}
@@ -1112,8 +1125,8 @@ export default function MapPage() {
 
                 <div className="directionCard">
                   <div className="directionLabel">Current Instruction</div>
-                  <div className="directionMain">{activeRoute.steps[currentStep]?.instruction || "Head towards destination"}</div>
-                  <div className="directionSub"><span>for</span><strong>{formatDistance(activeRoute.steps[currentStep]?.distance)}</strong></div>
+                  <div className="directionMain">{activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}</div>
+                  <div className="directionSub"><span>for</span><strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance)}</strong></div>
                 </div>
                 <div className="activeNavButtons">
                   <button className="btn-nav-next" onClick={advanceStep}>Next Step</button>
@@ -1126,7 +1139,7 @@ export default function MapPage() {
                     type="button"
                     style={{ background: '#721c24', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '13px', width: '100%', cursor: 'pointer', marginBottom: '8px' }}
                     onClick={() => {
-                      const targetStep = activeRoute.steps[currentStep + 1];
+                      const targetStep = activeRoute.steps?.[currentStep + 1];
                       if (targetStep && targetStep.maneuver) {
                         const [lng, lat] = targetStep.maneuver.location;
                         setUserLocation({ lat, lng });
