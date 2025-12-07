@@ -10,7 +10,7 @@ import {
 import L from "leaflet";
 // Import Reorder and useDragControls for the drag-and-drop functionality
 import { Reorder, useDragControls } from "motion/react";
-import redMarker from "../icons/red-marker.svg";
+import redMarker from "../icons/red-marker.svg"; // Keeping import just in case, but unused now
 import SearchIcon from "../icons/search.svg";
 
 // --- STATIC DATA FOR CARD CONTENT ---
@@ -53,12 +53,7 @@ const POSE_DETAILS = {
   }
 };
 
-const userIcon = L.icon({
-  iconUrl: redMarker,
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-});
-
+// --- CONFIG ---
 const defaultCenter = {
   lat: -33.8688, // fallback Sydney
   lng: 151.2093,
@@ -74,7 +69,6 @@ function GripIcon({ dragControls }) {
   return (
     <div 
       className="drag-handle"
-      // Start drag ONLY when touching this icon
       onPointerDown={(e) => dragControls.start(e)}
       style={{ cursor: 'grab', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#a0a0a0' }}
     >
@@ -85,14 +79,13 @@ function GripIcon({ dragControls }) {
   );
 }
 
-// 2. Draggable Item Wrapper (Isolates drag logic to prevent crashes during re-renders)
+// 2. Draggable Item Wrapper
 const DraggableItem = ({ value, children }) => {
   const dragControls = useDragControls();
-
   return (
     <Reorder.Item
       value={value}
-      dragListener={false} // Disable dragging on the whole row (only handle works)
+      dragListener={false} 
       dragControls={dragControls} 
       style={{ position: "relative", marginBottom: 0 }}
     >
@@ -240,8 +233,19 @@ function createDurationIcon(durationSeconds, isActive) {
     className: "route-label-icon", 
     html: `<div class="route-label-pill ${isActive ? 'active' : ''}">${text}</div>`,
     iconSize: [null, null], 
-    iconAnchor: [0, 0] 
+    iconAnchor: [20, 10] 
   });
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return "";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hrs} hr` : `${hrs} hr ${mins} min`;
 }
 
 // --- MAIN COMPONENT ---
@@ -264,12 +268,15 @@ export default function MapPage() {
   const [cardPage, setCardPage] = useState(0); 
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
 
-  // --- SEARCH STATE (DESTINATION) ---
+  // --- LOCATION & HEADING (COMPASS) STATE ---
+  const [userLocation, setUserLocation] = useState(null);
+  const [heading, setHeading] = useState(0); // 0-360 degrees
+  const [geoError, setGeoError] = useState("");
+
+  // --- SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState(""); 
   const [searchResults, setSearchResults] = useState([]); 
   const [showDropdown, setShowDropdown] = useState(false);
-
-  // --- SEARCH STATE (ORIGIN) ---
   const [originQuery, setOriginQuery] = useState("");
   const [originResults, setOriginResults] = useState([]);
   const [showOriginDropdown, setShowOriginDropdown] = useState(false);
@@ -277,10 +284,14 @@ export default function MapPage() {
   // --- DRAG ORDER STATE ---
   const [fieldOrder, setFieldOrder] = useState(["origin", "destination"]);
 
+  // --- DRAG SCROLL STATE (FOR PC USERS) ---
+  const routesContainerRef = useRef(null);
+  const [isDraggingRoute, setIsDraggingRoute] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [userLocation, setUserLocation] = useState(null);
-  const [geoError, setGeoError] = useState("");
   
   // Country Code State for strict filtering
   const [userCountryCode, setUserCountryCode] = useState(null);
@@ -302,7 +313,7 @@ export default function MapPage() {
     }
   }, [selectedCheckpoint]);
 
-  // Sync inputs with labels (reverse geocoding updates)
+  // Sync inputs with labels
   useEffect(() => {
     if (destinationLabel && !showDropdown) {
       setSearchQuery(destinationLabel);
@@ -315,31 +326,43 @@ export default function MapPage() {
     }
   }, [originLabel, showOriginDropdown]);
 
-  // --- REORDER HANDLER (Drag & Drop) ---
+  // --- DRAG SCROLL HANDLERS ---
+  const startDragging = (e) => {
+    setIsDraggingRoute(true);
+    setStartX(e.pageX - routesContainerRef.current.offsetLeft);
+    setScrollLeft(routesContainerRef.current.scrollLeft);
+  };
+
+  const stopDragging = () => {
+    setIsDraggingRoute(false);
+  };
+
+  const onDragMove = (e) => {
+    if (!isDraggingRoute) return;
+    e.preventDefault();
+    const x = e.pageX - routesContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    routesContainerRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  // --- REORDER HANDLER ---
   const handleReorder = (newOrder) => {
-    // 1. Update visual order instantly
     setFieldOrder(newOrder);
-
-    // 2. If positions swapped
     if (newOrder[0] !== fieldOrder[0]) {
-      // 3. Swap data logic
       handleSwapLocations();
-
-      // 4. Reset visual order back to standard after delay to prevent confusion
       setTimeout(() => {
         setFieldOrder(["origin", "destination"]);
       }, 300);
     }
   };
 
-  // --- DESTINATION SEARCH LOGIC ---
+  // --- SEARCH LOGIC (100ms Debounce) ---
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-    if (query.length < 3) {
+    if (query.length < 2) {
       setSearchResults([]);
       setShowDropdown(false);
       return;
@@ -349,8 +372,6 @@ export default function MapPage() {
         try {
             let biasParams = "";
             let countryFilter = userCountryCode ? `&countrycodes=${userCountryCode}` : ""; 
-
-            // Bias towards user location or default center
             const searchCenter = userLocation || defaultCenter;
             
             if (searchCenter) {
@@ -363,7 +384,6 @@ export default function MapPage() {
             }
 
             const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5${biasParams}${countryFilter}`;
-            
             const res = await fetch(url);
             const data = await res.json();
             setSearchResults(data);
@@ -371,7 +391,7 @@ export default function MapPage() {
         } catch (err) {
             console.error("Autocomplete failed", err);
         }
-    }, 200); 
+    }, 100); 
   };
 
   const selectSearchResult = (result) => {
@@ -384,21 +404,18 @@ export default function MapPage() {
 
     setDestinationLabel(label);
     setSearchQuery(label);
-    
     setSearchResults([]);
     setShowDropdown(false);
     setSelectionStep("done");
     setSheetOpen(true);
   };
 
-  // --- ORIGIN SEARCH LOGIC ---
   const handleOriginSearch = (e) => {
     const query = e.target.value;
     setOriginQuery(query);
-    
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-    if (query.length < 3) {
+    if (query.length < 2) {
       setOriginResults([]);
       setShowOriginDropdown(false);
       return;
@@ -408,7 +425,6 @@ export default function MapPage() {
       try {
         let biasParams = "";
         let countryFilter = userCountryCode ? `&countrycodes=${userCountryCode}` : "";
-
         const searchCenter = userLocation || defaultCenter;
 
         if (searchCenter) {
@@ -428,53 +444,77 @@ export default function MapPage() {
       } catch (err) {
         console.error("Origin search failed", err);
       }
-    }, 200);
+    }, 100);
   };
 
   const selectOriginResult = (result) => {
     const newOrigin = { lat: parseFloat(result.lat), lng: parseFloat(result.lon) };
     setOrigin(newOrigin);
-    
     const name = result.address.road || result.display_name.split(",")[0];
     const suburb = result.address.suburb || result.address.city || "";
     const label = suburb ? `${name}, ${suburb}` : name;
-    
     setOriginLabel(label);
     setOriginQuery(label);
     setOriginResults([]);
     setShowOriginDropdown(false);
   };
 
-  // 1. Geolocation Hook
+  // --- LOCATION & COMPASS LOGIC ---
   useEffect(() => {
     if (!("geolocation" in navigator)) {
-      setGeoError("Location is not supported in this browser.");
+      setGeoError("Location is not supported.");
       return;
     }
 
+    // 1. Position Tracking
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setUserLocation({ lat: latitude, lng: longitude });
         setGeoError("");
+        // Fallback heading if deviceorientation not available
+        if (pos.coords.heading && !heading) {
+           setHeading(pos.coords.heading);
+        }
       },
       (err) => {
         console.error("Geo error", err);
         setGeoError("Could not access your location.");
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 1000,
-      }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 1000 }
     );
+
+    // 2. Compass Tracking (Device Orientation)
+    const handleOrientation = (e) => {
+      // iOS: webkitCompassHeading, Android: alpha (usually)
+      let compass = e.webkitCompassHeading || Math.abs(e.alpha - 360);
+      if(compass) setHeading(compass);
+    };
+
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener("deviceorientation", handleOrientation);
+    }
 
     return () => {
       if (watchId) navigator.geolocation.clearWatch(watchId);
+      window.removeEventListener("deviceorientation", handleOrientation);
     };
   }, []);
 
-  // 1.5 Determine Country Code (Geo OR Timezone)
+  // --- DYNAMIC LOCATION PUCK ICON ---
+  const createLocationIcon = (headingValue) => {
+    return L.divIcon({
+      className: "user-location-puck",
+      html: `
+        <div class="user-puck-heading" style="transform: translateX(-50%) rotate(${headingValue}deg);"></div>
+        <div class="user-puck-dot"></div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20], // Center exactly
+    });
+  };
+
+  // 1.5 Determine Country Code
   useEffect(() => {
     const setCodeFromGeo = async () => {
       if (!userLocation) return;
@@ -484,9 +524,7 @@ export default function MapPage() {
         );
         const data = await res.json();
         const code = data.address?.country_code?.toUpperCase();
-        if (code) {
-          setUserCountryCode(code);
-        }
+        if (code) setUserCountryCode(code);
       } catch (err) {
         console.error("Failed to get country code", err);
       }
@@ -496,9 +534,7 @@ export default function MapPage() {
       setCodeFromGeo();
     } else if (!userCountryCode) {
       const tzCode = getCountryCodeFromTimezone();
-      if (tzCode) {
-        setUserCountryCode(tzCode);
-      }
+      if (tzCode) setUserCountryCode(tzCode);
     }
   }, [userLocation, userCountryCode]);
 
@@ -534,9 +570,7 @@ export default function MapPage() {
 
     checkpointPositions.forEach((pos, idx) => {
       if (visitedIndices.has(idx)) return;
-
       const dist = distanceMeters(userLocation, pos);
-
       if (dist < 20) {
         const cpData = checkpoints[idx];
         if (cpData) {
@@ -618,19 +652,15 @@ export default function MapPage() {
     setSheetOpen(true);
   }
 
-  // Find routes and show on map
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!origin || !destination) {
-      setErrorMsg("Please choose destination and starting point.");
-      return;
-    }
+  // --- ROUTE CALCULATOR ---
+  async function calculateRoute(startLoc, endLoc) {
+    if (!startLoc || !endLoc) return;
 
     setLoading(true);
     setErrorMsg("");
     
     try {
-      const routeOptions = await fetchRoutes(origin, destination);
+      const routeOptions = await fetchRoutes(startLoc, endLoc);
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
 
@@ -638,8 +668,8 @@ export default function MapPage() {
       updateCheckpointPositionsForRoute(selectedRoute, Number(checkpointCount));
 
       const payload = {
-        origin,
-        destination,
+        origin: startLoc,
+        destination: endLoc,
         checkpoint_count: Number(checkpointCount),
       };
 
@@ -661,6 +691,15 @@ export default function MapPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!origin || !destination) {
+      setErrorMsg("Please choose destination and starting point.");
+      return;
+    }
+    await calculateRoute(origin, destination);
   }
 
   function handleStartNavigation() {
@@ -734,11 +773,14 @@ export default function MapPage() {
     setOriginLabel(newOriginLabel);
     setDestinationLabel(newDestinationLabel);
     
-    setRoutes([]);
-    setActiveRouteIndex(0);
-    setCheckpoints([]);
-    setCheckpointPositions([]);
-    setErrorMsg("");
+    if (newOrigin && newDestination) {
+        calculateRoute(newOrigin, newDestination);
+    } else {
+        setRoutes([]);
+        setActiveRouteIndex(0);
+        setCheckpoints([]);
+        setCheckpointPositions([]);
+    }
     setSelectionStep("done");
   }
 
@@ -777,11 +819,12 @@ export default function MapPage() {
 
   async function fetchRoutes(originPoint, destinationPoint) {
     const routesList = [];
+    const timestamp = Date.now(); 
     let idCounter = 0;
 
     try {
       const direct = await fetchSingleRoute([originPoint, destinationPoint]);
-      routesList.push({ id: idCounter++, ...direct });
+      routesList.push({ id: `${timestamp}-${idCounter++}`, ...direct });
     } catch (e) {
       console.warn("Direct route failed", e);
     }
@@ -799,7 +842,7 @@ export default function MapPage() {
       if (routesList.length >= 4) break;
       try {
         const viaRoute = await fetchSingleRoute([originPoint, via, destinationPoint]);
-        routesList.push({ id: idCounter++, ...viaRoute });
+        routesList.push({ id: `${timestamp}-${idCounter++}`, ...viaRoute });
       } catch (e) {}
     }
 
@@ -865,8 +908,6 @@ export default function MapPage() {
   };
 
   const activeRoute = routes[activeRouteIndex];
-  
-  // --- HEADER TEXT LOGIC ---
   const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
 
   return (
@@ -885,7 +926,15 @@ export default function MapPage() {
           <ClickHandler onClick={handleMapClick} />
           <RecenterOnUser userLocation={userLocation} />
 
-          {userLocation && <Marker position={userLocation} icon={userIcon} />}
+          {/* DYNAMIC USER LOCATION PUCK */}
+          {userLocation && (
+            <Marker 
+              position={userLocation} 
+              icon={createLocationIcon(heading)} 
+              zIndexOffset={1000} 
+            />
+          )}
+
           {origin && <Marker position={origin} />}
           {destination && <Marker position={destination} />}
 
@@ -906,35 +955,60 @@ export default function MapPage() {
             />
           ))}
 
-          {/* ROUTES and TIME PILLS */}
+          {/* TIME PILLS ON MAP */}
           {routes.map((route, idx) => {
+            const midPointIndex = Math.floor(route.coords.length / 2);
+            const midPoint = route.coords[midPointIndex];
+            if (!midPoint) return null;
             const isActive = idx === activeRouteIndex;
-            const mid = route.coords[Math.floor(route.coords.length / 2)];
-            
-            const latOffset = (idx % 2 === 0 ? 1 : -1) * (idx * 0.0003); 
-            const labelPos = offsetPoint(mid.lat, mid.lng, latOffset * 111320, 0);
 
             return (
-              <div key={route.id}>
-                <Polyline
-                  positions={route.coords}
-                  className={isActive ? "route-line routeLineActive" : "route-line routeLineAlt"}
-                  eventHandlers={{
-                    click: () => { if (!isWalking) setActiveRouteIndex(idx); }
-                  }}
-                />
-                
-                <Marker
-                  position={labelPos}
-                  icon={createDurationIcon(route.duration, isActive)}
-                  zIndexOffset={isActive ? 1000 : 10} 
-                  eventHandlers={{
-                    click: () => { if (!isWalking) setActiveRouteIndex(idx); }
-                  }}
-                />
-              </div>
+              <Marker
+                key={`time-pill-${route.id}`}
+                position={midPoint}
+                icon={createDurationIcon(route.duration, isActive)}
+                zIndexOffset={isActive ? 1000 : 500}
+                eventHandlers={{
+                  click: () => setActiveRouteIndex(idx),
+                }}
+              />
             );
           })}
+
+          {/* ROUTES */}
+          {routes.map((route, idx) => {
+            if (idx === activeRouteIndex) return null; // Skip active for now
+
+            return (
+              <Polyline
+                key={route.id}
+                positions={route.coords}
+                pathOptions={{ 
+                  className: "route-line routeLineAlt",
+                  color: "#88a888", 
+                  weight: 5,
+                  opacity: 0.6 
+                }}
+                eventHandlers={{
+                  click: () => setActiveRouteIndex(idx),
+                }}
+              />
+            );
+          })}
+
+          {/* Render ACTIVE route last */}
+          {routes[activeRouteIndex] && (
+            <Polyline
+              key={routes[activeRouteIndex].id}
+              positions={routes[activeRouteIndex].coords}
+              pathOptions={{ 
+                className: "route-line routeLineActive",
+                color: "#61b329",   
+                weight: 6,          
+                opacity: 1.0        
+              }}
+            />
+          )}
         </MapContainer>
       </div>
 
@@ -1022,7 +1096,20 @@ export default function MapPage() {
             {isWalking && activeRoute ? (
               /* 1. ACTIVE WALK MODE */
               <div className="activeWalkContainer">
-                <div className="activeWalkHeader">Let's Go!</div>
+                {/* --- HEADER ROW WITH BACK BUTTON --- */}
+                <div className="active-walk-header-row">
+                  <button 
+                    className="active-walk-back-btn" 
+                    onClick={() => {
+                      setIsWalking(false);
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <div className="activeWalkHeader">Let's Go!</div>
+                  <div style={{ width: '40px' }}></div>
+                </div>
+
                 <div className="directionCard">
                   <div className="directionLabel">Current Instruction</div>
                   <div className="directionMain">{activeRoute.steps[currentStep]?.instruction || "Head towards destination"}</div>
@@ -1162,7 +1249,14 @@ export default function MapPage() {
 
                 {/* --- 3. ROUTES (Moved Down) --- */}
                 {routes.length > 1 && (
-                  <div className="routeChoices">
+                  <div 
+                    className="routeChoices"
+                    ref={routesContainerRef}
+                    onMouseDown={startDragging}
+                    onMouseLeave={stopDragging}
+                    onMouseUp={stopDragging}
+                    onMouseMove={onDragMove}
+                  >
                     {routes.map((route, idx) => (
                       <button
                         key={route.id}
@@ -1173,7 +1267,8 @@ export default function MapPage() {
                           updateCheckpointPositionsForRoute(route, Number(checkpointCount));
                         }}
                       >
-                        Route {idx + 1} ({formatDistance(route.distance)})
+                        {/* DURATION TEXT */}
+                        <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
                       </button>
                     ))}
                   </div>

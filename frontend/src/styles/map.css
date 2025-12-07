@@ -32,41 +32,41 @@
 
 /* --- Route Lines --- */
 .route-line {
-  stroke-dasharray: 2000;
-  stroke-dashoffset: 2000;
-  cursor: pointer; /* Show pointer when hovering line */
+  cursor: pointer;
   transition: stroke-width 0.2s, stroke 0.2s;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-/* Active: Bright Green, Thick, Animated */
 .routeLineActive {
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
   animation: routeDraw 1.5s linear forwards;
   stroke: #61b329;
-  stroke-width: 6; /* Thicker for easier clicking */
+  stroke-width: 6; 
   opacity: 1;
 }
 
-/* Inactive: Grey/Green, Thinner, Faded */
 .routeLineAlt {
   stroke-dasharray: 0;
   stroke-dashoffset: 0;
   stroke: #88a888;
-  stroke-width: 4;
+  stroke-width: 5;
   opacity: 0.6;
 }
 
 .routeLineAlt:hover {
-  stroke: #61b329; /* Highlight on hover */
+  stroke: #61b329;
   opacity: 0.9;
+  stroke-width: 6;
 }
 
-@keyframes routeDraw { to { stroke-dashoffset: 0; } }
-
-/* --- Time Pills (Duration Labels) --- */
-.route-label-icon { 
-  background: none; 
-  border: none; 
+@keyframes routeDraw { 
+  to { stroke-dashoffset: 0; } 
 }
+
+/* --- Time Pills --- */
+.route-label-icon { background: none; border: none; }
 
 .route-label-pill {
   background-color: #ffffff;
@@ -78,22 +78,14 @@
   color: #333;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   white-space: nowrap;
-  
-  /* Center positioning */
   position: relative;
   left: -50%; 
   top: -50%;
-  
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.route-label-pill:hover {
-  transform: scale(1.1);
-  background-color: #f9f9f9;
-}
-
-/* Active Pill State */
+.route-label-pill:hover { transform: scale(1.1); background-color: #f9f9f9; }
 .route-label-pill.active {
   background-color: #61b329;
   color: white;
@@ -115,52 +107,68 @@
 
 
 /* =========================================
-   BOTTOM SHEET WITH INTEGRATED SEARCH
+   BOTTOM SHEET (DOCKED STYLE)
    ========================================= */
 
 .mapCheckpointSection {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
   z-index: 40;
-  pointer-events: none;
+  
+  /* DOCKING LOGIC: Sit exactly on top of the Nav Bar (80px) */
+  bottom: 0px; 
+  
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  
+  /* Let clicks pass through empty space above */
+  pointer-events: none; 
 }
 
 .mapCheckpointSheet {
   background: #ffffff;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  
+  /* ROUNDED TOP CORNERS ONLY (Docked Look) */
+  border-radius: 24px 24px 0 0; 
+  
+  /* FULL WIDTH */
+  width: 100%; 
+  margin: 0; 
+  
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
-  width: 100%;
   
-  /* Padding bottom ensures it sits behind nav bar */
-  padding-bottom: 85px; 
-  margin-bottom: 0;
+  height: auto;           
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
   
-  /* Smooth slide animation */
+  /* No huge padding needed since we sit ON TOP of nav bar */
+  padding-bottom: 0; 
+  
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* HEADER: Always Visible Area */
+.mapCheckpointSheet form {
+  margin-bottom: 0 !important;
+}
+
+/* HEADER */
 .mapCheckpointSummaryBar {
-  /* Taller height to fit the search bar */
-  min-height: 80px; 
-  padding: 24px 16px 12px; /* Top padding pushes search bar down */
+  min-height: 60px; 
+  padding: 16px 16px 0px; 
   background: #ffffff;
   border-radius: 24px 24px 0 0;
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  cursor: default; /* Don't show pointer everywhere, only on handle */
+  cursor: pointer;
   border-bottom: 1px solid transparent;
 }
 
-/* Grey Handle */
 .mapCheckpointSummaryBar::after {
   content: "";
   position: absolute;
@@ -169,10 +177,8 @@
   height: 4px;
   background-color: #e0e0e0;
   border-radius: 10px;
-  cursor: pointer;
 }
 
-/* Text Title (for Active Mode) */
 .mapCheckpointSummaryText {
   font-size: 16px;
   font-weight: 700;
@@ -180,140 +186,22 @@
   margin-top: 8px;
 }
 
-/* SEARCH BAR STYLING */
-.map-search-form {
-  width: 100%;
-}
-
-.map-search-pill {
-  background: #f2f4f2; /* Light grey background */
-  border: 1px solid #e0e0e0;
-  padding: 12px 16px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.map-search-pill:focus-within {
-  background: #ffffff;
-  border-color: #61b329;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.15);
-}
-
-.map-search-icon {
-  width: 20px;
-  height: 20px;
-  opacity: 0.5;
-}
-
-.map-search-input {
-  border: none;
-  background: transparent;
-  width: 100%;
-  font-size: 16px;
-  color: #1f3d1f;
-  font-weight: 500;
-  outline: none;
-}
-
-.map-search-input::placeholder {
-  color: #88a888;
-}
-
-/* SEARCH AUTOCOMPLETE DROPDOWN */
-.map-search-container {
-  position: relative; 
-  width: 100%;
-}
-
-.search-results-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  margin-top: 8px;
-  z-index: 2000;
-  max-height: 250px;
-  overflow-y: auto;
-  border: 1px solid #f0f0f0;
-}
-
-.search-result-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f7f9f7;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: background 0.2s;
-}
-
-.search-result-item:last-child {
-  border-bottom: none;
-}
-
-.search-result-item:hover {
-  background-color: #f4f8f1;
-}
-
-.search-result-icon {
-  font-size: 16px;
-  color: #88a888;
-  background: #f0f0f0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.search-result-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.search-main-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f3d1f;
-}
-
-.search-sub-text {
-  font-size: 11px;
-  color: #6b876b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 240px;
-}
-
 /* BODY CONTENT */
 .mapCheckpointBody {
-  padding: 0 24px;
-  overflow-y: auto;
-  scrollbar-width: none;
-  
-  /* Animate opening */
-  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
-  max-height: 60vh;
+  padding: 0 20px 20px 20px; /* Added bottom padding for spacing */
+  overflow-y: auto;      
+  height: auto;
+  max-height: 50vh;      
+  transition: opacity 0.2s ease-in-out;
   opacity: 1;
 }
 
-/* COLLAPSED STATE LOGIC */
+/* COLLAPSED STATE */
 .mapCheckpointSheetCollapsed {
-  /* Move down so only the 80px header is visible */
-  transform: translateY(calc(100% - 80px));
+  /* Push down so only header shows */
+  transform: translateY(calc(100% - 60px)); 
 }
 
-/* When collapsed, hide the body content completely */
 .mapCheckpointSheetCollapsed .mapCheckpointBody {
   max-height: 0 !important;
   padding-top: 0 !important;
@@ -326,8 +214,171 @@
   transform: translateY(0);
 }
 
+
 /* =========================================
-   CHECKPOINT DETAIL OVERLAY
+   TIMELINE & INPUTS
+   ========================================= */
+
+.abstract-timeline {
+  position: relative;
+  padding-left: 24px;    
+  margin-bottom: 12px;   
+  margin-top: 4px;       
+}
+
+.timeline-line {
+  position: absolute; left: 11px; top: 18px; bottom: 18px; width: 2px;
+  background: linear-gradient(to bottom, #61b329, #a7e3a2);
+}
+
+.timeline-point {
+  position: absolute; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: white; border: 4px solid #61b329; z-index: 2;
+}
+.timeline-point.start { top: 4px; }
+.timeline-point.end { bottom: 4px; border-color: #88a888; }
+
+.location-row-abstract { margin-bottom: 8px; }
+
+.location-pill-abstract {
+  position: relative; 
+  padding: 0; 
+  display: flex;
+  align-items: center;
+  background: #ffffff; 
+  border: 1px solid #f0f0f0;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.timeline-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f3d1f;
+  outline: none;
+  border-radius: 16px;
+}
+
+.timeline-input::placeholder { color: #88a888; font-weight: 500; }
+
+.drag-handle {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 12px; cursor: grab; color: #a0a0a0; touch-action: none;
+}
+.drag-handle:active { cursor: grabbing; color: #61b329; }
+
+.timeline-dropdown {
+  position: absolute; top: 110%; left: 0; right: 0;
+  background: #ffffff; border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000;
+  max-height: 220px; overflow-y: auto; border: 1px solid #f0f0f0;
+}
+
+.dropdown-option {
+  padding: 12px 16px; border-bottom: 1px solid #f7f9f7;
+  cursor: pointer; display: flex; flex-direction: column;
+}
+.dropdown-option:hover { background-color: #f9f9f9; }
+.dropdown-main-text { font-size: 13px; font-weight: 600; color: #1f3d1f; }
+.dropdown-sub-text { font-size: 11px; color: #88a888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.dropdown-option-special {
+  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+  color: #61b329; font-weight: 600; font-size: 13px;
+  cursor: pointer; border-bottom: 1px solid #f0f0f0; background: #fcfdfc;
+}
+.dropdown-option-special:hover { background: #f4f8f1; }
+
+
+/* =========================================
+   CHECKPOINT CONTROL
+   ========================================= */
+
+.checkpoint-control-abstract {
+  margin-bottom: 12px; 
+  background: #ffffff; padding: 16px;       
+  border-radius: 20px; border: 1px solid #f0f0f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.checkpoint-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+}
+.checkpoint-header span:first-child { font-size: 15px; font-weight: 700; color: #1f3d1f; }
+.checkpoint-count-display {
+  font-size: 16px; color: #ffffff; font-weight: 700;
+  background: #61b329; padding: 4px 12px; border-radius: 12px;
+  min-width: 24px; text-align: center; box-shadow: 0 2px 6px rgba(97, 179, 41, 0.3);
+}
+
+.styled-slider {
+  -webkit-appearance: none; width: 100%; height: 6px;
+  border-radius: 99px; background: #e0e0e0; outline: none;
+  cursor: pointer; position: relative; margin: 0; accent-color: #61b329;
+}
+.styled-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #ffffff; border: 2px solid #61b329;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15); margin-top: -11px;
+  transition: transform 0.1s ease;
+}
+.styled-slider::-webkit-slider-thumb:active { transform: scale(1.1); background: #f4f8f1; }
+
+
+/* =========================================
+   ROUTE SELECTION (Horizontal)
+   ========================================= */
+
+.routeChoices {
+  display: flex; flex-direction: row; overflow-x: auto;
+  gap: 12px; padding: 4px 2px 12px 2px; margin-bottom: 8px;       
+  cursor: grab; scrollbar-width: none; -ms-overflow-style: none;
+}
+.routeChoices:active { cursor: grabbing; }
+.routeChoices::-webkit-scrollbar { display: none; }
+
+.routeChoiceBtn {
+  flex: 0 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0;
+  color: #1f3d1f; padding: 10px 16px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.routeChoiceBtn:hover { background-color: #f4f8f1; border-color: #61b329; transform: translateY(-1px); }
+.routeChoiceBtnActive {
+  background-color: #61b329; color: #ffffff; border-color: #4a8c20;
+  box-shadow: 0 4px 8px rgba(97, 179, 41, 0.3);
+}
+.routeChoiceBtnActive:hover { background-color: #529922; }
+
+
+/* =========================================
+   ACTION BUTTONS
+   ========================================= */
+
+.action-buttons-abstract { 
+  display: flex; gap: 8px; margin-top: 8px; margin-bottom: 4px;
+}
+.btn-abstract { flex: 1; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; }
+.btn-primary { background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); color: #fff; }
+.btn-secondary { background: #fff5f5; color: #d32f2f; border: 2px solid #ffcdd2; }
+.btn-secondary:hover { background: #fee2e2; border-color: #ef5350; }
+
+.mapErrorInline {
+  font-size: 13px; color: #c0392b; background: #fff0f0; padding: 8px 12px; border-radius: 8px; margin-top: 10px; display: inline-block;
+}
+.mapGeoErrorInline {
+  font-size: 13px; color: #c0392b; background: #fff0f0; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; text-align: center;
+}
+
+
+/* =========================================
+   CHECKPOINT POPUP & ACTIVE WALK
    ========================================= */
 
 .checkpoint-overlay-backdrop {
@@ -366,165 +417,47 @@
 .cp-side-btn.right { right: 8px; }
 .cp-complete-block-btn { width: 100%; background: #61b329; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; }
 
-/* =========================================
-   GREEN SLIDER & PLANNING UI
-   ========================================= */
+.activeWalkContainer { text-align: center; padding-bottom: 10px; animation: fadeIn 0.3s ease; }
 
-.checkpoint-control-abstract {
-  margin-bottom: 24px;
-  background: #ffffff;
-  padding: 20px 16px;
-  border-radius: 20px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-}
-
-.checkpoint-header {
+.active-walk-header-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between; /* Pushes button left, title center, spacer right */
   margin-bottom: 16px;
 }
 
-.checkpoint-header span:first-child {
-  font-size: 15px;
-  font-weight: 700;
-  color: #1f3d1f;
+.activeWalkHeader { 
+  font-size: 24px; 
+  color: #0a6f00; 
+  font-weight: 700; 
+  /* Remove margin here since the row handles it now */
+  margin: 0; 
 }
 
-.checkpoint-count-display {
-  font-size: 16px;
-  color: #ffffff;
-  font-weight: 700;
-  background: #61b329; /* Solid Green Badge */
-  padding: 4px 12px;
-  border-radius: 12px;
-  min-width: 24px;
-  text-align: center;
-  box-shadow: 0 2px 6px rgba(97, 179, 41, 0.3);
-}
-
-/* Custom Range Slider */
-.styled-slider {
-  -webkit-appearance: none;
-  width: 100%;
-  height: 6px;
-  border-radius: 99px;
-  background: #e0e0e0; /* Track color */
-  outline: none;
-  cursor: pointer;
-  position: relative;
-  margin: 0;
-  accent-color: #61b329; /* Modern browser support for track fill */
-}
-
-/* The Thumb (Drag Handle) */
-.styled-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
+/* --- THE CHEVRON BUTTON --- */
+.active-walk-back-btn {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid #61b329; /* Green Border */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  margin-top: -11px; /* Centers thumb on the track */
-  transition: transform 0.1s ease;
-}
-
-.styled-slider::-webkit-slider-thumb:active {
-  transform: scale(1.1);
   background: #f4f8f1;
-}
-
-/* Firefox Support */
-.styled-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid #61b329;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  border: 1px solid #e9f7dd;
+  color: #61b329;
+  font-size: 28px; /* Large chevron */
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  padding-bottom: 10px; /* Visual tweak to center the character */
+  transition: all 0.2s ease;
 }
 
-/* =========================================
-   BUTTONS & TIMELINES
-   ========================================= */
-
-.action-buttons-abstract { display: flex; gap: 10px; margin-top: 16px; }
-.btn-abstract { flex: 1; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; }
-.btn-primary { background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); color: #fff; }
-
-.btn-secondary {
-  /* Keep your existing secondary style if used elsewhere, 
-     OR update it to red if "Clear" is the only secondary button */
-  background: #fff5f5; /* Light red background */
-  color: #d32f2f;       /* Dark red text */
-  border: 2px solid #ffcdd2; /* Light red border */
+.active-walk-back-btn:hover {
+  background: #61b329;
+  color: #ffffff;
+  border-color: #61b329;
 }
 
-.btn-secondary:hover {
-  background: #fee2e2;
-  border-color: #ef5350;
-}
-
-.abstract-timeline {
-  position: relative;
-  padding-left: 30px;
-  margin-bottom: 24px;
-  margin-top: 12px;
-}
-.timeline-line {
-  position: absolute; left: 11px; top: 18px; bottom: 18px; width: 2px;
-  background: linear-gradient(to bottom, #61b329, #a7e3a2);
-}
-.timeline-point {
-  position: absolute; left: 2px; width: 16px; height: 16px;
-  border-radius: 50%; background: white; border: 4px solid #61b329; z-index: 2;
-}
-.timeline-point.start { top: 4px; }
-.timeline-point.end { bottom: 4px; border-color: #88a888; }
-
-.location-row-abstract { margin-bottom: 12px; }
-.location-pill-abstract {
-  background: #ffffff; border: 1px solid #f0f0f0;
-  padding: 14px 16px; border-radius: 16px;
-  font-size: 14px; color: #1f3d1f; font-weight: 600; cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-}
-.location-pill-abstract .empty-text { color: #88a888; font-weight: 500; }
-
-.swap-btn-abstract {
-  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-  width: 40px; height: 40px; border-radius: 50%;
-  background: white; border: 1px solid #e9f7dd; color: #61b329;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; cursor: pointer; z-index: 10;
-}
-
-/* Mobile List */
-.mapCheckpointList {
-  max-height: 0; overflow: hidden; opacity: 0; transition: all 0.3s ease; margin: 0; padding: 0; list-style: none;
-}
-.mapCheckpointList.expanded {
-  max-height: 250px; opacity: 1; margin-top: 8px; overflow-y: auto;
-}
-.mapCheckpointItem { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f4f8f1; }
-.mapCheckpointLineMain { font-size: 14px; font-weight: 600; color: #1f3d1f; }
-.mapCheckpointLineSub { font-size: 11px; color: #6b876b; }
-
-.checkpoint-toggle-btn {
-  background: none; border: none; color: #61b329; font-size: 13px; font-weight: 600;
-  padding: 12px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-  width: 100%; border-top: 1px solid #f0f0f0; margin-top: 8px;
-}
-.checkpoint-toggle-icon { font-size: 10px; transition: transform 0.3s ease; }
-.checkpoint-toggle-icon.open { transform: rotate(180deg); }
-
-/* Active Walk UI */
-.activeWalkContainer { text-align: center; padding-bottom: 10px; animation: fadeIn 0.3s ease; }
-.activeWalkHeader { font-size: 24px; color: #0a6f00; margin-bottom: 16px; font-weight: 700; }
 .directionCard { background-color: #e9f7dd; padding: 20px; border-radius: 20px; border: 2px solid #61b329; margin-bottom: 24px; text-align: left; box-shadow: 0 4px 10px rgba(97, 179, 41, 0.15); }
 .directionLabel { font-size: 12px; text-transform: uppercase; color: #4a6e4d; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; }
 .directionMain { font-size: 18px; font-weight: 700; color: #1f3d1f; line-height: 1.4; }
@@ -535,163 +468,49 @@
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* Allows the text pill and button to sit side-by-side */
-.location-row-split {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-}
+/* =========================================
+   USER LOCATION PUCK (Apple Maps Style)
+   ========================================= */
 
-/* Make the text pill fill the remaining space */
-.location-pill-abstract.flex-grow {
-  flex: 1;
-}
-
-/* The new square GPS button */
-.btn-gps {
-  width: 48px;
-  height: 48px; /* Matches height of the pills */
-  background: #ffffff;
-  border: 1px solid #dcefdc;
-  border-radius: 12px;
-  color: #61b329;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.btn-gps:hover {
-  background: #e9f7dd;
-  border-color: #61b329;
-  transform: scale(1.05);
-}
-
-.btn-gps:active {
-  transform: scale(0.95);
-}
-
-/* ... existing code ... */
-
-/* --- UPDATE: Input Styling inside Timeline Pills --- */
-.location-pill-abstract {
-  position: relative; /* Needed for absolute dropdown positioning */
-  padding: 0; /* Remove padding from container, move to input */
-  display: flex;
-  align-items: center;
-  overflow: visible; /* Allow dropdown to overflow */
-}
-
-.timeline-input {
-  width: 100%;
-  border: none;
+/* The Container */
+.user-location-puck {
   background: transparent;
-  padding: 14px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f3d1f;
-  outline: none;
-  border-radius: 16px;
+  position: relative;
+  transition: all 0.1s linear; /* Smooth movement */
 }
 
-.timeline-input::placeholder {
-  color: #88a888;
-  font-weight: 500;
-}
-
-/* --- UPDATE: Timeline Dropdowns --- */
-.timeline-dropdown {
+/* The Blue Dot (Center) */
+.user-puck-dot {
+  width: 20px;
+  height: 20px;
+  background-color: #007aff; /* System Blue */
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   position: absolute;
-  top: 110%; /* Just below the input */
-  left: 0;
-  right: 0;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  z-index: 1000;
-  max-height: 220px;
-  overflow-y: auto;
-  border: 1px solid #f0f0f0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
 }
 
-/* Specific style for the "Use Current Location" option */
-.dropdown-option-special {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #61b329; /* Primary Green */
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
-  background: #fcfdfc;
-}
-
-.dropdown-option-special:hover {
-  background: #f4f8f1;
-}
-
-.dropdown-option {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f7f9f7;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-}
-
-.dropdown-option:last-child {
-  border-bottom: none;
-}
-
-.dropdown-option:hover {
-  background-color: #f9f9f9;
-}
-
-.dropdown-main-text {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1f3d1f;
-}
-
-.dropdown-sub-text {
-  font-size: 11px;
-  color: #88a888;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ... existing code ... */
-
-/* The Drag Handle Container */
-.drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  cursor: grab;
-  color: #a0a0a0;
-  touch-action: none; /* Critical for mobile dragging */
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-  color: #61b329; /* Turn green when grabbing */
-}
-
-/* Remove the old swap button styling if we don't need it, 
-   or just ensure the new list looks clean */
-.reorder-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding: 0;
-  list-style: none;
+/* The View Cone (Direction) */
+.user-puck-heading {
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 40px solid rgba(0, 122, 255, 0.3); /* Semi-transparent blue */
+  border-radius: 50% 50% 0 0; /* Soften the cone */
+  
+  position: absolute;
+  top: -24px; /* Move cone 'forward' from the dot */
+  left: 50%;
+  
+  /* Rotation Pivot: The center of the dot, not the center of the cone */
+  transform-origin: bottom center; 
+  transform: translateX(-50%); /* Center horizontally */
+  
+  z-index: 1;
+  pointer-events: none;
 }
