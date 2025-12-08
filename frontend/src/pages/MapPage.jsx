@@ -388,6 +388,58 @@ export default function MapPage() {
   const lastStepChangeRef = useRef(Date.now());
   const searchTimeoutRef = useRef(null);
 
+  const walkStartTimeRef = useRef(null);
+
+  // --- 1. RESTORE STATE ON LOAD ---
+  useEffect(() => {
+    const savedState = localStorage.getItem("activeWalkState");
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState);
+            if (parsed.origin) setOrigin(parsed.origin);
+            if (parsed.destination) setDestination(parsed.destination);
+            if (parsed.routes) setRoutes(parsed.routes);
+            if (parsed.checkpoints) setCheckpoints(parsed.checkpoints);
+            if (parsed.checkpointPositions) setCheckpointPositions(parsed.checkpointPositions);
+            if (parsed.isWalking) setIsWalking(parsed.isWalking);
+            if (parsed.currentStep) setCurrentStep(parsed.currentStep);
+            if (parsed.activeRouteIndex) setActiveRouteIndex(parsed.activeRouteIndex);
+            if (parsed.visitedIndices) setVisitedIndices(new Set(parsed.visitedIndices));
+            if (parsed.startTime) walkStartTimeRef.current = parsed.startTime;
+            if (parsed.selectionStep) setSelectionStep(parsed.selectionStep);
+            if (parsed.sheetOpen) setSheetOpen(parsed.sheetOpen);
+            if (parsed.originLabel) setOriginLabel(parsed.originLabel);
+            if (parsed.destinationLabel) setDestinationLabel(parsed.destinationLabel);
+        } catch (e) {
+            console.error("Failed to restore walk state", e);
+        }
+    }
+  }, []);
+
+  // --- 2. SAVE STATE ON CHANGE ---
+  useEffect(() => {
+    // Only save if we have actual data (origin or destination)
+    if (destination || origin) {
+        const stateToSave = {
+            origin,
+            destination,
+            routes,
+            checkpoints,
+            checkpointPositions,
+            isWalking,
+            currentStep,
+            activeRouteIndex,
+            visitedIndices: Array.from(visitedIndices), // Convert Set to Array for storage
+            startTime: walkStartTimeRef.current,
+            selectionStep,
+            sheetOpen,
+            originLabel,
+            destinationLabel
+        };
+        localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
+    }
+  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel]);
+
   // --- RESET SLIDE SCROLL ON OPEN ---
   useEffect(() => {
     if (selectedCheckpoint) {
@@ -812,7 +864,68 @@ export default function MapPage() {
       setCurrentStep(0);
       setVisitedIndices(new Set()); 
       setSheetOpen(true);
+      walkStartTimeRef.current = Date.now();
     }
+  }
+
+  function handleEndWalk() {
+    const endTime = Date.now();
+    const startTime = walkStartTimeRef.current || endTime;
+    const durationMs = endTime - startTime;
+    const durationMinutes = Math.max(0, Math.round(durationMs / 60000));
+    
+    // Calculate REAL distance walked (Sum of completed steps ONLY)
+    let distanceMeters = 0;
+    const activeRoute = routes[activeRouteIndex];
+    if (activeRoute && activeRoute.steps) {
+        // Only sum the steps that have been fully completed
+        // (indices 0 up to currentStep)
+        for (let i = 0; i < currentStep; i++) {
+            distanceMeters += activeRoute.steps[i].distance || 0;
+        }
+    }
+    
+    const distanceKm = (distanceMeters / 1000).toFixed(2);
+    const posesCompleted = visitedIndices.size;
+    
+    // Standard walking estimates:
+    // ~1350 steps per km (or 1.35 per meter)
+    const steps = Math.round(distanceMeters * 1.35); 
+    // ~65 calories per km
+    const calories = Math.round(distanceKm * 65);
+
+    const newWalk = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      distance: distanceKm,
+      duration: durationMinutes,
+      poses: posesCompleted,
+      steps: steps,
+      calories: calories
+    };
+
+    const existingHistory = JSON.parse(localStorage.getItem("userWalkHistory") || "[]");
+    const updatedHistory = [newWalk, ...existingHistory];
+    localStorage.setItem("userWalkHistory", JSON.stringify(updatedHistory));
+
+    const timeText = durationMinutes < 1 ? "< 1 min" : `${durationMinutes} min`;
+
+    alert(
+      `Walk Finished! \n` +
+      `📏 Distance: ${distanceKm} km \n` +
+      `⏱️ Time: ${timeText} \n` +
+      `🔥 Calories: ${calories} \n` +
+      `👣 Steps: ${steps} \n` +
+      `🧘 Poses: ${posesCompleted}`
+    );
+
+    localStorage.removeItem("activeWalkState");
+    
+    // Reset UI state
+    setIsWalking(false);
+    setSelectionStep("done"); 
+    setSheetOpen(true); 
   }
 
   function handleReset() {
@@ -835,6 +948,8 @@ export default function MapPage() {
     setOriginQuery("");
     setOriginResults([]);
   }
+
+  localStorage.removeItem("activeWalkState");
 
   // --- EVENT HANDLERS ---
   async function handleMapClick(latlng) {
@@ -1206,7 +1321,7 @@ export default function MapPage() {
                 </div>
                 <div className="activeNavButtons">
                   <button className="btn-nav-next" onClick={advanceStep}>Next Step</button>
-                  <button className="btn-nav-end" onClick={() => { setIsWalking(false); setSelectionStep("done"); }}>End Walk</button>
+                  <button className="btn-nav-end" onClick={handleEndWalk}>End Walk</button>
                 </div>
                 {/* Developer Tools */}
                 <div style={{ marginTop: '20px', padding: '10px', background: '#f8d7da', borderRadius: '12px', border: '1px solid #f5c6cb' }}>
