@@ -12,6 +12,9 @@ import L from "leaflet";
 import { Reorder, useDragControls } from "motion/react";
 import redMarker from "../icons/red-marker.svg"; 
 import SearchIcon from "../icons/search.svg";
+// Import both Outline and Fill icons
+import UserLocationIcon from "../icons/User-Location.svg"; 
+import UserLocationFillIcon from "../icons/User-Location-Fill.svg"; 
 
 // --- STATIC DATA FOR CARD CONTENT ---
 const POSE_DETAILS = {
@@ -52,6 +55,8 @@ const POSE_DETAILS = {
     question: "Did you feel strong and stable in this stance?"
   }
 };
+
+const CHECKPOINT_TABS = ["Overview", "Benefits", "Reflect"];
 
 // --- CONFIG ---
 const defaultCenter = {
@@ -103,18 +108,89 @@ function ClickHandler({ onClick }) {
   return null;
 }
 
-function RecenterOnUser({ userLocation }) {
+// --- UPDATED USER LOCATION BUTTON (FIXED) ---
+function UserLocationButton({ userLocation, setHeading }) {
   const map = useMap();
-  const [hasCentered, setHasCentered] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const btnRef = useRef(null);
 
+  // Use Leaflet's built-in utility to stop map clicks passing through this button
   useEffect(() => {
-    if (userLocation && !hasCentered) {
-      map.setView(userLocation, 15);
-      setHasCentered(true);
+    if (btnRef.current) {
+      L.DomEvent.disableClickPropagation(btnRef.current);
+      L.DomEvent.disableScrollPropagation(btnRef.current);
     }
-  }, [userLocation, map, hasCentered]);
+  }, []);
 
-  return null;
+  const handleLocate = (e) => {
+    // 1. Trigger Visual Feedback
+    setIsLocating(true);
+    setTimeout(() => {
+      setIsLocating(false);
+    }, 100);
+
+    // 2. Recenter Map
+    if (userLocation) {
+      map.setView(userLocation, 16, { animate: true });
+    } else {
+      alert("Waiting for location...");
+    }
+
+    // 3. Request Compass Permissions (iOS 13+)
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+      DeviceOrientationEvent.requestPermission()
+        .then((response) => {
+          if (response === "granted") {
+            // Permission granted
+          } else {
+            alert("Compass permission denied");
+          }
+        })
+        .catch(console.error);
+    }
+  };
+
+  return (
+    <button
+      ref={btnRef} // Attach ref so Leaflet can disable propagation
+      className="map-locate-fab"
+      onClick={handleLocate}
+      style={{
+        position: "absolute",
+        top: "20px", 
+        right: "16px", 
+        zIndex: 1000,
+        width: "48px",
+        height: "48px",
+        borderRadius: "12px", 
+        background: "white",
+        border: "none",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "10px", 
+        transition: "transform 0.1s ease",
+        userSelect: "none" // Prevent selection
+      }}
+    >
+      <img 
+        src={isLocating ? UserLocationFillIcon : UserLocationIcon} 
+        alt="Locate Me" 
+        draggable="false" // FIX: Prevents the "ghost image" drag effect
+        style={{ 
+            width: "100%", 
+            height: "100%", 
+            objectFit: "contain",
+            pointerEvents: "none" // Ensures click hits the button, not the image
+        }} 
+      />
+    </button>
+  );
 }
 
 // --- UTILITY FUNCTIONS ---
@@ -907,7 +983,7 @@ export default function MapPage() {
           />
 
           <ClickHandler onClick={handleMapClick} />
-          <RecenterOnUser userLocation={userLocation} />
+          <UserLocationButton userLocation={userLocation} setHeading={setHeading} />
 
           {/* DYNAMIC USER LOCATION PUCK */}
           {userLocation && (
@@ -1069,7 +1145,7 @@ export default function MapPage() {
               </div>
             </div>
 
-            {/* PAGINATION DOTS (Clickable for PC) */}
+            {/* PAGINATION DOTS (Clickable) */}
             <div className="cp-pagination">
                 {[0, 1, 2].map((i) => (
                     <div 
