@@ -8,15 +8,11 @@ import {
   Polyline,
 } from "react-leaflet";
 import L from "leaflet";
-// Import Reorder and useDragControls for the drag-and-drop functionality
 import { Reorder, useDragControls } from "motion/react";
-import redMarker from "../icons/red-marker.svg"; 
-import SearchIcon from "../icons/search.svg";
-// Import both Outline and Fill icons
 import UserLocationIcon from "../icons/User-Location.svg"; 
 import UserLocationFillIcon from "../icons/User-Location-Fill.svg"; 
-// IMPORT THE CARD COMPONENT
 import WalkSummaryCard from "../components/WalkSummaryCard";
+import RouteIcon from "../icons/route.svg";
 
 // --- STATIC DATA FOR CARD CONTENT ---
 const POSE_DETAILS = {
@@ -360,7 +356,9 @@ export default function MapPage() {
       return null;
     }
   });
-  
+
+  const [hasCenteredOnLoad, setHasCenteredOnLoad] = useState(false);
+
   const [heading, setHeading] = useState(0); // 0-360 degrees
   const [geoError, setGeoError] = useState("");
   // Flag to suppress Origin Marker if user chose "Use my current location"
@@ -405,6 +403,40 @@ export default function MapPage() {
   const searchTimeoutRef = useRef(null);
 
   const walkStartTimeRef = useRef(null);
+
+  useEffect(() => {
+    localStorage.removeItem("activeWalkState");
+  }, []);
+
+  useEffect(() => {
+    if (map && userLocation && !hasCenteredOnLoad) {
+      // Use setView for an instant snap, or flyTo for smooth.
+      // We use setView here to avoid the "Sydney -> User" swoosh on refresh.
+      map.setView(userLocation, 15, { animate: false });
+      setHasCenteredOnLoad(true);
+    }
+  }, [map, userLocation, hasCenteredOnLoad]);
+
+  useEffect(() => {
+    if (selectedCheckpoint) {
+      setActiveSlide(0);
+      if (slidesRef.current) {
+        slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
+      }
+    }
+  }, [selectedCheckpoint]);
+
+  useEffect(() => {
+    if (destinationLabel && !showDropdown) {
+      setSearchQuery(destinationLabel);
+    }
+  }, [destinationLabel, showDropdown]);
+
+  useEffect(() => {
+    if (originLabel && !showOriginDropdown) {
+      setOriginQuery(originLabel);
+    }
+  }, [originLabel, showOriginDropdown]);
 
   // --- 1. RESTORE STATE ON LOAD ---
   useEffect(() => {
@@ -785,6 +817,13 @@ export default function MapPage() {
     }
   }, [userLocation, destination, isWalking]);
 
+  useEffect(() => {
+    if (map && userLocation && !hasCenteredOnLoad) {
+      map.setView(userLocation, 15, { animate: false }); // Instant set
+      setHasCenteredOnLoad(true);
+    }
+  }, [map, userLocation, hasCenteredOnLoad]);
+
   // --- LOGIC FUNCTIONS ---
 
   function advanceStep() {
@@ -1031,17 +1070,20 @@ export default function MapPage() {
     setFinalMetrics({
         distance: distanceKm,
         duration: durationSeconds,
-        checkpoints: visitedIndices.size, // Number of poses completed
+        checkpoints: visitedIndices.size, 
         steps: Math.round(distanceMeters * 1.35),
-        calories: Math.round(distanceKm * 65)
+        calories: Math.round(distanceKm * 65),
+        start_coords: origin,      // <--- Added
+        end_coords: destination    // <--- Added
     });
 
     setShowSummary(true); // <--- This triggers the popup card!
-    setSheetOpen(false); // <--- NEW: Folds down the bottom sheet!
+    handleReset(); // <--- NEW: Folds down the bottom sheet!
   };
 
   const handleSaveAndClose = async () => {
     try {
+        // Use coordinates stored in finalMetrics (since state is already reset)
         await fetch(`${apiBase}/api/walk_complete`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1049,9 +1091,9 @@ export default function MapPage() {
                 distance_km: finalMetrics.distance,
                 duration_seconds: finalMetrics.duration,
                 checkpoints_completed: finalMetrics.checkpoints,
-                start_coords: origin, 
-                end_coords: destination,
-                yoga_poses_performed: [] // Add specific pose names if you track them
+                start_coords: finalMetrics.start_coords, // <--- Updated
+                end_coords: finalMetrics.end_coords,     // <--- Updated
+                yoga_poses_performed: [] 
             }),
         });
         console.log("Walk saved successfully!");
@@ -1062,7 +1104,7 @@ export default function MapPage() {
     // Reset UI State
     setShowSummary(false);
     setFinalMetrics(null);
-    handleReset(); 
+    // handleReset() is not needed here as it was called in handleStopNavigation
   };
 
   function handleReset() {
@@ -1178,7 +1220,7 @@ export default function MapPage() {
 
         <MapContainer
           ref={setMap}
-          center={defaultCenter}
+          center={userLocation || defaultCenter}
           zoom={13}
           className="mapContainer"
         >
@@ -1475,10 +1517,7 @@ export default function MapPage() {
                 
                 {/* --- 1. DIRECTIONS (Draggable Timeline) --- */}
                 <div className="abstract-timeline">
-                    <div className="timeline-line"></div>
-                    <div className="timeline-point start"></div>
-                    <div className="timeline-point end"></div>
-
+                    
                     {/* DRAGGABLE LIST */}
                     <Reorder.Group 
                       axis="y" 

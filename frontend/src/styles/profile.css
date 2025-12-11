@@ -1,11 +1,15 @@
 /* =========================================
-   PROFILE PAGE
+   PROFILE PAGE (Scrollable Version)
    ========================================= */
+
 .profilePage {
+  /* Fix the container to the screen height */
   position: relative;
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  height: 100vh; /* changed from 100% to 100vh for mobile locking */
+  overflow: hidden; /* Prevent whole-page bounce */
+  display: flex;
+  flex-direction: column;
 }
 
 /* soft green gradient background */
@@ -17,24 +21,16 @@
   pointer-events: none;
 }
 
-.profileInner {
-  position: relative;
-  z-index: 1;
-  padding: 20px 16px 24px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* --- HEADER & AVATAR --- */
+/* --- HEADER (Fixed at Top) --- */
 .profileHeader {
   position: relative; /* Allows absolute positioning of settings button */
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-bottom: 10px;
+  padding: 20px 16px 10px; /* Added padding to replace old wrapper */
+  flex-shrink: 0; /* Prevents header from scrolling away */
+  z-index: 10;
 }
 
 .profileAvatar {
@@ -46,6 +42,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 12px rgba(10, 111, 0, 0.1);
 }
 
 .profileAvatarInitial {
@@ -67,14 +64,11 @@
   color: #3f6944;
 }
 
-/* --- SETTINGS BUTTON --- */
+/* --- SETTINGS BUTTON (Preserved your fixes) --- */
 .profileSettingsBtn {
   position: absolute;
-  /* 🟢 Fix: Move it down slightly so it's not stuck to the status bar area */
-  top: -5px; 
-  right: 0px; 
-  
-  /* 🟢 Fix: Larger touch target (40px) but consistent size */
+  top: 20px; /* Adjusted for new padding */
+  right: 16px; 
   width: 40px;
   height: 40px;
   background: none;
@@ -82,15 +76,12 @@
   padding: 0;
   cursor: pointer;
   z-index: 10;
-  
-  /* 🟢 Fix: Center the icon perfectly */
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .profileSettingsBtn img {
-  /* 🟢 Fix: Force icon to standard 24px size */
   width: 32px;
   height: 32px;
   display: block;
@@ -101,6 +92,30 @@
   transform: rotate(25deg);
 }
 
+/* --- MAIN CONTENT (Scrollable Middle) --- */
+/* Renamed from .profileInner to .profileMain to match logic */
+.profileMain {
+  position: relative;
+  z-index: 1;
+  padding: 10px 16px 120px; /* Bottom padding leaves room for Nav */
+  box-sizing: border-box;
+  
+  /* Flex Layout for Content */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  
+  /* SCROLL LOGIC */
+  flex: 1; /* Takes all remaining space */
+  overflow-y: auto; /* Enables scrolling */
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar for cleaner look */
+.profileMain::-webkit-scrollbar {
+  display: none;
+}
+
 /* --- STATS ROW --- */
 .profileStatsRow {
   display: flex;
@@ -108,7 +123,7 @@
   background: rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   padding: 15px;
-  margin-bottom: 10px;
+  flex-shrink: 0; /* Prevent stats from squishing */
 }
 
 .profileStatItem {
@@ -137,6 +152,8 @@
 }
 
 .profileCard {
+  background: rgba(255, 255, 255, 0.5); /* Added subtle backing */
+  border-radius: 16px;
   padding: 14px 14px 12px;
 }
 
@@ -194,12 +211,15 @@
   background: #61b329;
 }
 
-/* --- HISTORY ITEMS (New Additions) --- */
+/* --- HISTORY ITEMS --- */
 .historyCardItem {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 10px;
+  border-radius: 16px;
 }
 
 .historyLeft {
@@ -216,7 +236,7 @@
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  border-radius: 10px;
+  border-radius: 50%;
 }
 
 .historyTitle {
@@ -251,17 +271,19 @@
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
+  padding-bottom: 20px; /* Extra padding at bottom of content */
 }
 
 .profilePrimaryButton,
 .profileSecondaryButton {
   width: 100%;
-  padding: 11px;
+  padding: 14px; /* Increased slightly for touch targets */
   border-radius: 999px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   border: none;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
 .profilePrimaryButton {

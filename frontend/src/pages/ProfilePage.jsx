@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Card from "../components/Card.jsx";
+import AppNav from "../components/AppNav.jsx"; // Ensure you have this component
 import "../styles/profile.css";
 
 // Icons
@@ -10,11 +11,9 @@ export default function ProfilePage({ onChangePage }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ walks: 0, minutes: 0, poses: 0 });
   
-  // 🟢 1. NEW STATE: Controls whether we show 3 items or ALL items
-  const [showAll, setShowAll] = useState(false);
-  
   const apiBase = "http://localhost:5000";
 
+  // 1. FETCH DATA (Kept your original logic)
   useEffect(() => {
     fetch(`${apiBase}/api/walk_history`)
       .then((res) => {
@@ -47,32 +46,32 @@ export default function ProfilePage({ onChangePage }) {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  // 🟢 2. LOGIC: Determine which items to display
-  // If showAll is true, show everything. If false, only show the first 3.
+  // 2. LOGIC: Determine which items to display (Top 3)
   const displayedHistory = history.slice(0, 3);
 
   return (
     <div className="profilePage">
       <div className="profileBackground"></div>
 
-      <div className="profileInner">
-        
-        {/* HEADER */}
-        <div className="profileHeader">
-          <button 
-            className="profileSettingsBtn"
-            onClick={() => onChangePage("settings")} 
-          >
-             <img src={SettingsIcon} alt="Settings" />
-          </button>
+      {/* 3. HEADER (Fixed at Top) */}
+      <header className="profileHeader">
+        <button 
+          className="profileSettingsBtn"
+          onClick={() => onChangePage("settings")} 
+        >
+           <img src={SettingsIcon} alt="Settings" />
+        </button>
 
-          <div className="profileAvatar">
-            <span className="profileAvatarInitial">V</span>
-          </div>
-          <h2 className="profileName">Vishnu</h2>
-          <p className="profileLevel">Yoga Walker • Lvl 3</p>
+        <div className="profileAvatar">
+          <span className="profileAvatarInitial">V</span>
         </div>
+        <h2 className="profileName">Vishnu</h2>
+        <p className="profileLevel">Yoga Walker • Lvl 3</p>
+      </header>
 
+      {/* 4. MAIN CONTENT (Scrollable Area) */}
+      <main className="profileMain">
+        
         {/* STATS ROW */}
         <div className="profileStatsRow">
           <div className="profileStatItem">
@@ -90,11 +89,11 @@ export default function ProfilePage({ onChangePage }) {
         </div>
 
         {/* GOALS SECTION */}
-        <div className="profileSection">
+        <section className="profileSection">
           <div className="profileSectionHeader">
             <h3 className="profileSectionTitle">Weekly Goals</h3>
           </div>
-          <Card className="profileCard">
+          <div className="profileCard">
             <div className="profileGoalRow">
               <div className="profileGoalInfo">
                 <span className="profileGoalTitle">Walk 15km</span>
@@ -104,35 +103,35 @@ export default function ProfilePage({ onChangePage }) {
                 <div className="profileProgressFill" style={{ width: "80%" }}></div>
               </div>
             </div>
-          </Card>
-        </div>
+          </div>
+        </section>
 
         {/* HISTORY SECTION */}
-        <div className="profileSection">
+        <section className="profileSection">
           <div className="profileSectionHeader">
             <h3 className="profileSectionTitle">Recent History</h3>
             
-            {/* 🟢 3. TOGGLE BUTTON: Only show if history has more than 3 items */}
+            {/* Toggle Button */}
             {history.length > 3 && (
               <span 
-              className="profileSectionMeta" 
-              onClick={() => onChangePage("history")} /* <-- Changed! */
-              style={{ cursor: "pointer", userSelect: "none" }}
-            >
-              See All
-            </span>
+                className="profileSectionMeta" 
+                onClick={() => onChangePage("history")} 
+                style={{ cursor: "pointer", userSelect: "none" }}
+              >
+                See All
+              </span>
             )}
           </div>
 
-          <div className="profileHistoryList">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
             {loading ? (
               <p className="profileSectionText">Loading history...</p>
             ) : history.length === 0 ? (
                <p className="profileSectionText">No walks yet.</p>
             ) : (
-              // 🟢 4. RENDER: Map over the filtered 'displayedHistory' list
+              // Map over the filtered 'displayedHistory' list
               displayedHistory.map((walk) => (
-                <Card key={walk.WalkID} className="profileCard historyCardItem">
+                <div key={walk.WalkID} className="historyCardItem">
                   <div className="historyLeft">
                     <div className="historyIconBadge">🧘</div>
                     <div>
@@ -144,20 +143,19 @@ export default function ProfilePage({ onChangePage }) {
                     <div className="historyValue">{walk.DistanceKm.toFixed(2)} km</div>
                     <div className="historySubValue">{walk.DurationMinutes} min</div>
                   </div>
-                </Card>
+                </div>
               ))
             )}
           </div>
-        </div>
+        </section>
 
         {/* ACTIONS */}
         <div className="profileActions">
-          <button className="profilePrimaryButton">Edit Profile</button>
-          <button className="profileSecondaryButton">Achievements</button>
+          <button className="profilePrimaryButton">View Achievements</button>
+          <button className="profileSecondaryButton">Edit Profile</button>
         </div>
         
-        <div style={{height: "80px"}}></div>
-      </div>
+      </main>
     </div>
   );
 }
