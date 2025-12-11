@@ -15,6 +15,8 @@ import SearchIcon from "../icons/search.svg";
 // Import both Outline and Fill icons
 import UserLocationIcon from "../icons/User-Location.svg"; 
 import UserLocationFillIcon from "../icons/User-Location-Fill.svg"; 
+// IMPORT THE CARD COMPONENT
+import WalkSummaryCard from "../components/WalkSummaryCard";
 
 // --- STATIC DATA FOR CARD CONTENT ---
 const POSE_DETAILS = {
@@ -327,6 +329,7 @@ function formatDuration(seconds) {
 // --- MAIN COMPONENT ---
 
 export default function MapPage() {
+  const [map, setMap] = useState(null);
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
   const [checkpointCount, setCheckpointCount] = useState(5);
@@ -348,7 +351,16 @@ export default function MapPage() {
   const slidesRef = useRef(null); 
 
   // --- LOCATION & HEADING (COMPASS) STATE ---
-  const [userLocation, setUserLocation] = useState(null);
+  // OPTIMIZATION: Initialize with cache if available for instant load
+  const [userLocation, setUserLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem("lastKnownLocation");
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  
   const [heading, setHeading] = useState(0); // 0-360 degrees
   const [geoError, setGeoError] = useState("");
   // Flag to suppress Origin Marker if user chose "Use my current location"
@@ -383,6 +395,10 @@ export default function MapPage() {
   
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectionStep, setSelectionStep] = useState("destination");
+
+  // Summary Card State
+  const [showSummary, setShowSummary] = useState(false);
+  const [finalMetrics, setFinalMetrics] = useState(null);
 
   const apiBase = "http://localhost:5000";
   const lastStepChangeRef = useRef(Date.now());
@@ -616,27 +632,46 @@ export default function MapPage() {
     setIsOriginCurrentLocation(false); 
   };
 
-  // --- LOCATION & COMPASS LOGIC ---
+  // --- OPTIMIZED LOCATION & COMPASS LOGIC ---
   useEffect(() => {
     if (!("geolocation" in navigator)) {
       setGeoError("Location is not supported.");
       return;
     }
 
+    // 1. FAST: Get Coarse Location (WiFi/Cell)
+    // Low accuracy is much faster (often <500ms) than waiting for GPS warmup
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const newLoc = { lat: latitude, lng: longitude };
+        setUserLocation(newLoc);
+        // Persist immediately for next load
+        localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
+      },
+      (err) => console.warn("Coarse location failed (non-critical)", err),
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+    );
+
+    // 2. PRECISE: Start watching for GPS (this takes longer but updates later)
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        setUserLocation({ lat: latitude, lng: longitude });
+        const newLoc = { lat: latitude, lng: longitude };
+        setUserLocation(newLoc);
         setGeoError("");
+        localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
+        
         if (pos.coords.heading && !heading) {
            setHeading(pos.coords.heading);
         }
       },
       (err) => {
         console.error("Geo error", err);
-        setGeoError("Could not access your location.");
+        // Only show error if we have NO location at all (cache failed + coarse failed)
+        if (!userLocation) setGeoError("Could not access your location.");
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 1000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
 
     const handleOrientation = (e) => {
@@ -737,6 +772,19 @@ export default function MapPage() {
     });
   }, [userLocation, isWalking, checkpointPositions, visitedIndices, checkpoints]);
 
+  // 4. Auto-Finish Hook
+  useEffect(() => {
+    if (!isWalking || !userLocation || !destination) return;
+    
+    // Calculate distance to the final destination
+    const distToEnd = distanceMeters(userLocation, destination);
+    
+    // If within 30 meters, trigger the finish logic automatically
+    if (distToEnd < 30) {
+       handleStopNavigation();
+    }
+  }, [userLocation, destination, isWalking]);
+
   // --- LOGIC FUNCTIONS ---
 
   function advanceStep() {
@@ -809,23 +857,121 @@ export default function MapPage() {
   }
 
   // --- ROUTE CALCULATOR ---
-  async function calculateRoute(startLoc, endLoc) {
-    if (!startLoc || !endLoc) return;
+// Fetch helpers (OSRM)
+  function formatDistance(m) {
+    if (m == null) return "";
+    if (m < 1000) return `${m.toFixed(0)} m`;
+    return `${(m / 1000).toFixed(1)} km`;
+  }
+
+  // UPDATED: Now fetches alternatives and returns an ARRAY of routes
+  async function fetchSingleRoute(pointList) {
+    const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
+    
+    // 1. Ask OSRM for multiple paths (alternatives=true)
+    const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Could not get route");
+
+    const data = await res.json();
+    if (!data.routes || data.routes.length === 0) throw new Error("No route found");
+
+    // 2. Return an ARRAY of formatted routes (Note the .map here)
+    return data.routes.map(route => {
+        const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+        const distance = route.distance;
+        
+        // Calculate duration based on your app's speed setting
+        const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
+
+        const steps = route.legs[0].steps.map(step => ({
+          instruction: step.maneuver.type === 'depart' 
+            ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
+            : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
+          distance: step.distance,
+          maneuver: step.maneuver 
+        }));
+
+        return { coords, distance, duration: walkDurationSeconds, steps };
+    });
+  }
+
+  async function fetchRoutes(originPoint, destinationPoint) {
+    const routesList = [];
+    const timestamp = Date.now(); 
+    let idCounter = 0;
+
+    try {
+      // 1. Get Direct Routes
+      // This now returns an ARRAY, so we must loop through it!
+      const directs = await fetchSingleRoute([originPoint, destinationPoint]);
+      
+      directs.forEach(route => {
+          routesList.push({ id: `${timestamp}-${idCounter++}`, ...route });
+      });
+    } catch (e) {
+      console.warn("Direct route failed", e);
+    }
+
+    // 2. Get Via Routes (Midpoint offsets)
+    const midLat = (originPoint.lat + destinationPoint.lat) / 2;
+    const midLng = (originPoint.lng + destinationPoint.lng) / 2;
+    const viaCandidates = [
+      offsetPoint(midLat, midLng, 250, 0),
+      offsetPoint(midLat, midLng, -250, 0),
+      offsetPoint(midLat, midLng, 0, 250),
+      offsetPoint(midLat, midLng, 0, -250),
+    ];
+
+    for (const via of viaCandidates) {
+      if (routesList.length >= 6) break; // Limit total routes to avoid UI clutter
+      try {
+        const viaRoutes = await fetchSingleRoute([originPoint, via, destinationPoint]);
+        
+        // Loop through the array of results
+        viaRoutes.forEach(route => {
+             routesList.push({ id: `${timestamp}-${idCounter++}`, ...route });
+        });
+      } catch (e) {}
+    }
+
+    if (!routesList.length) throw new Error("No route found");
+    return routesList;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    
+    // 🟢 1. BETTER ERROR CHECKING
+    if (!origin || !destination) {
+      if (!origin && originQuery.length > 0) {
+        setErrorMsg("Please select a starting point from the dropdown list.");
+      } else if (!destination && searchQuery.length > 0) {
+        setErrorMsg("Please select a destination from the dropdown list.");
+      } else {
+        setErrorMsg("Please choose destination and starting point.");
+      }
+      return;
+    }
 
     setLoading(true);
     setErrorMsg("");
-    
+
     try {
-      const routeOptions = await fetchRoutes(startLoc, endLoc);
+      // 🟢 2. USE THE EXISTING FUNCTION 'fetchRoutes'
+      const routeOptions = await fetchRoutes(origin, destination);
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
 
+      // 🟢 3. SETUP CHECKPOINTS
       const selectedRoute = routeOptions[0];
       updateCheckpointPositionsForRoute(selectedRoute, Number(checkpointCount));
 
+      // 🟢 4. FETCH CHECKPOINTS FROM BACKEND (Optional, keeps existing logic)
       const payload = {
-        origin: startLoc,
-        destination: endLoc,
+        origin,
+        destination,
         checkpoint_count: Number(checkpointCount),
       };
 
@@ -835,27 +981,20 @@ export default function MapPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Request failed");
-
-      const data = await res.json();
-      setCheckpoints(data.checkpoints || []);
+      if (res.ok) {
+        const data = await res.json();
+        setCheckpoints(data.checkpoints || []);
+      }
+      
       setVisitedIndices(new Set()); 
       setSheetOpen(true);
+
     } catch (err) {
       console.error(err);
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || "Failed to find route");
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!origin || !destination) {
-      setErrorMsg("Please choose destination and starting point.");
-      return;
-    }
-    await calculateRoute(origin, destination);
   }
 
   function handleStartNavigation() {
@@ -868,11 +1007,12 @@ export default function MapPage() {
     }
   }
 
-  function handleEndWalk() {
+  // --- FIXED END WALK LOGIC ---
+  const handleStopNavigation = () => {
     const endTime = Date.now();
     const startTime = walkStartTimeRef.current || endTime;
     const durationMs = endTime - startTime;
-    const durationMinutes = Math.max(0, Math.round(durationMs / 60000));
+    const durationSeconds = Math.max(0, Math.round(durationMs / 1000));
     
     // Calculate REAL distance walked (Sum of completed steps ONLY)
     let distanceMeters = 0;
@@ -886,47 +1026,44 @@ export default function MapPage() {
     }
     
     const distanceKm = (distanceMeters / 1000).toFixed(2);
-    const posesCompleted = visitedIndices.size;
     
-    // Standard walking estimates:
-    // ~1350 steps per km (or 1.35 per meter)
-    const steps = Math.round(distanceMeters * 1.35); 
-    // ~65 calories per km
-    const calories = Math.round(distanceKm * 65);
+    // Prepare metrics for the card
+    setFinalMetrics({
+        distance: distanceKm,
+        duration: durationSeconds,
+        checkpoints: visitedIndices.size, // Number of poses completed
+        steps: Math.round(distanceMeters * 1.35),
+        calories: Math.round(distanceKm * 65)
+    });
 
-    const newWalk = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      distance: distanceKm,
-      duration: durationMinutes,
-      poses: posesCompleted,
-      steps: steps,
-      calories: calories
-    };
+    setShowSummary(true); // <--- This triggers the popup card!
+    setSheetOpen(false); // <--- NEW: Folds down the bottom sheet!
+  };
 
-    const existingHistory = JSON.parse(localStorage.getItem("userWalkHistory") || "[]");
-    const updatedHistory = [newWalk, ...existingHistory];
-    localStorage.setItem("userWalkHistory", JSON.stringify(updatedHistory));
+  const handleSaveAndClose = async () => {
+    try {
+        await fetch(`${apiBase}/api/walk_complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                distance_km: finalMetrics.distance,
+                duration_seconds: finalMetrics.duration,
+                checkpoints_completed: finalMetrics.checkpoints,
+                start_coords: origin, 
+                end_coords: destination,
+                yoga_poses_performed: [] // Add specific pose names if you track them
+            }),
+        });
+        console.log("Walk saved successfully!");
+    } catch (e) {
+        console.error("Save failed", e);
+    }
 
-    const timeText = durationMinutes < 1 ? "< 1 min" : `${durationMinutes} min`;
-
-    alert(
-      `Walk Finished! \n` +
-      `📏 Distance: ${distanceKm} km \n` +
-      `⏱️ Time: ${timeText} \n` +
-      `🔥 Calories: ${calories} \n` +
-      `👣 Steps: ${steps} \n` +
-      `🧘 Poses: ${posesCompleted}`
-    );
-
-    localStorage.removeItem("activeWalkState");
-    
-    // Reset UI state
-    setIsWalking(false);
-    setSelectionStep("done"); 
-    setSheetOpen(true); 
-  }
+    // Reset UI State
+    setShowSummary(false);
+    setFinalMetrics(null);
+    handleReset(); 
+  };
 
   function handleReset() {
     setOrigin(null);
@@ -947,9 +1084,15 @@ export default function MapPage() {
     setSearchResults([]);
     setOriginQuery("");
     setOriginResults([]);
+
+    if (map && userLocation) {
+        map.flyTo(userLocation, 15, { animate: true });
+    }
   }
 
-  localStorage.removeItem("activeWalkState");
+  // localStorage.removeItem("activeWalkState"); 
+  // Commented out to prevent accidental clearing during refreshes, 
+  // handleReset() clears it when walk is actually done/cancelled.
 
   // --- EVENT HANDLERS ---
   async function handleMapClick(latlng) {
@@ -1014,72 +1157,6 @@ export default function MapPage() {
     setSelectionStep("done");
   }
 
-  // Fetch helpers (OSRM)
-  function formatDistance(m) {
-    if (m == null) return "";
-    if (m < 1000) return `${m.toFixed(0)} m`;
-    return `${(m / 1000).toFixed(1)} km`;
-  }
-
-  async function fetchSingleRoute(pointList) {
-    const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
-    const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Could not get route");
-
-    const data = await res.json();
-    if (!data.routes || !data.routes[0]) throw new Error("No route found");
-
-    const route = data.routes[0];
-    const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-    const distance = route.distance;
-    const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
-
-    const steps = route.legs[0].steps.map(step => ({
-      instruction: step.maneuver.type === 'depart' 
-        ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
-        : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
-      distance: step.distance,
-      maneuver: step.maneuver 
-    }));
-
-    return { coords, distance, duration: walkDurationSeconds, steps };
-  }
-
-  async function fetchRoutes(originPoint, destinationPoint) {
-    const routesList = [];
-    const timestamp = Date.now(); 
-    let idCounter = 0;
-
-    try {
-      const direct = await fetchSingleRoute([originPoint, destinationPoint]);
-      routesList.push({ id: `${timestamp}-${idCounter++}`, ...direct });
-    } catch (e) {
-      console.warn("Direct route failed", e);
-    }
-
-    const midLat = (originPoint.lat + destinationPoint.lat) / 2;
-    const midLng = (originPoint.lng + destinationPoint.lng) / 2;
-    const viaCandidates = [
-      offsetPoint(midLat, midLng, 250, 0),
-      offsetPoint(midLat, midLng, -250, 0),
-      offsetPoint(midLat, midLng, 0, 250),
-      offsetPoint(midLat, midLng, 0, -250),
-    ];
-
-    for (const via of viaCandidates) {
-      if (routesList.length >= 4) break;
-      try {
-        const viaRoute = await fetchSingleRoute([originPoint, via, destinationPoint]);
-        routesList.push({ id: `${timestamp}-${idCounter++}`, ...viaRoute });
-      } catch (e) {}
-    }
-
-    if (!routesList.length) throw new Error("No route found");
-    return routesList;
-  }
-
   // --- RENDER HELPERS ---
   const activeRoute = routes[activeRouteIndex];
   const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
@@ -1087,7 +1164,20 @@ export default function MapPage() {
   return (
     <div className="mapPageRoot">
       <div className="mapWrapper">
+        
+        {/* --- ADDED SUMMARY CARD OVERLAY --- */}
+        {showSummary && finalMetrics && (
+          <WalkSummaryCard 
+            distance={finalMetrics.distance}
+            duration={finalMetrics.duration}
+            checkpoints={finalMetrics.checkpoints}
+            onSave={handleSaveAndClose}
+            onClose={() => setShowSummary(false)} // <--- NEW: Handle Close Action
+          />
+        )}
+
         <MapContainer
+          ref={setMap}
           center={defaultCenter}
           zoom={13}
           className="mapContainer"
@@ -1131,8 +1221,8 @@ export default function MapPage() {
             />
           ))}
 
-          {/* TIME PILLS ON MAP */}
-          {routes.map((route, idx) => {
+          {/* TIME PILLS ON MAP (Hide when walking) */}
+          {!isWalking && routes.map((route, idx) => {
             const midPointIndex = Math.floor(route.coords.length / 2);
             const midPoint = route.coords[midPointIndex];
             if (!midPoint) return null;
@@ -1151,8 +1241,8 @@ export default function MapPage() {
             );
           })}
 
-          {/* ROUTES */}
-          {routes.map((route, idx) => {
+          {/* ROUTES (Hide inactive routes when walking) */}
+          {!isWalking && routes.map((route, idx) => {
             if (idx === activeRouteIndex) return null; // Skip active for now
 
             return (
@@ -1284,6 +1374,7 @@ export default function MapPage() {
               ? "mapCheckpointSheetOpen"
               : "mapCheckpointSheetCollapsed")
           }
+          onClick={(e) => e.stopPropagation()}
         >
           <div
             className="mapCheckpointSummaryBar"
@@ -1321,38 +1412,61 @@ export default function MapPage() {
                 </div>
                 <div className="activeNavButtons">
                   <button className="btn-nav-next" onClick={advanceStep}>Next Step</button>
-                  <button className="btn-nav-end" onClick={handleEndWalk}>End Walk</button>
+                  <button className="btn-nav-end" onClick={handleStopNavigation}>End Walk</button>
                 </div>
-                {/* Developer Tools */}
-                <div style={{ marginTop: '20px', padding: '10px', background: '#f8d7da', borderRadius: '12px', border: '1px solid #f5c6cb' }}>
-                  <p style={{ margin: '0 0 8px', color: '#721c24', fontSize: '12px', fontWeight: 'bold' }}>🕵️ Developer Tools</p>
+                
+                {/* --- UPGRADED DEVELOPER TOOLS --- */}
+                <div style={{ marginTop: '20px', padding: '12px', background: '#f0f4f0', borderRadius: '12px', border: '1px solid #dcefdc' }}>
+                  <p style={{ margin: '0 0 10px', color: '#1f3d1f', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    🕵️ Developer Teleport
+                  </p>
+                  
+                  {/* 1. Next Turn */}
                   <button
                     type="button"
-                    style={{ background: '#721c24', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '13px', width: '100%', cursor: 'pointer', marginBottom: '8px' }}
+                    style={{ background: '#6a7a6e', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', width: '100%', cursor: 'pointer', marginBottom: '8px' }}
                     onClick={() => {
                       const targetStep = activeRoute.steps?.[currentStep + 1];
                       if (targetStep && targetStep.maneuver) {
                         const [lng, lat] = targetStep.maneuver.location;
                         setUserLocation({ lat, lng });
                       } else {
-                        alert("No more steps!");
+                        alert("No more steps in route!");
                       }
                     }}
                   >
-                    Teleport to Next Turn
+                    📍 Jump to Next Turn
                   </button>
+
+                  {/* 2. Dynamic Checkpoint Buttons */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' }}>
+                    {checkpointPositions.map((pos, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        style={{ background: '#61b329', color: 'white', border: 'none', padding: '8px 0', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                        onClick={() => setUserLocation(pos)}
+                      >
+                        CP {i + 1}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 3. Destination (Finish) */}
                   <button
                     type="button"
-                    style={{ background: '#1c7224', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '13px', width: '100%', cursor: 'pointer' }}
+                    style={{ background: '#c0392b', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', width: '100%', cursor: 'pointer', fontWeight: 'bold' }}
                     onClick={() => {
-                      if (checkpointPositions.length > 0) {
-                        setUserLocation(checkpointPositions[0]); 
+                      if (destination) {
+                        setUserLocation(destination);
                       }
                     }}
                   >
-                    Teleport to Checkpoint 1
+                    🏁 Jump to Finish (Test End)
                   </button>
                 </div>
+                {/* -------------------------------- */}
+
               </div>
             ) : (
               /* 2. PLANNING UI */

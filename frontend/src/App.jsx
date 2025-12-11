@@ -6,6 +6,7 @@ import MapPage from "./pages/MapPage.jsx";
 import LibPage from "./pages/LibPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
+import HistoryPage from "./pages/HistoryPage";
 
 function App() {
   const [activePage, setActivePage] = useState("home");
@@ -28,6 +29,8 @@ function App() {
       case "profile":
         // pass navigation handler into profile
         return <ProfilePage onChangePage={setActivePage} />;
+      case "history": 
+        return <HistoryPage onBack={() => setActivePage("profile")} />;
       case "home":
       default:
         return <HomePage />;

@@ -27,10 +27,14 @@
   gap: 16px;
 }
 
-/* Header & Avatar */
+/* --- HEADER & AVATAR --- */
 .profileHeader {
+  position: relative; /* Allows absolute positioning of settings button */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 }
 
 .profileAvatar {
@@ -57,73 +61,62 @@
   color: #125316;
 }
 
-.profileStreak {
+.profileLevel {
   margin: 4px 0 0;
   font-size: 14px;
   color: #3f6944;
 }
 
-/* Settings Button Icon */
-.profile-icon {
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-}
-
-.profile-icon:hover {
-  opacity: 0.8;
-}
-
-.profileButton {
-  background: transparent;
-  border: none;
-}
-
+/* --- SETTINGS BUTTON --- */
 .profileSettingsBtn {
   position: absolute;
-  top: 0px;
-  right: 32px;
-  width: 32px;
-  height: 32px;
+  /* 🟢 Fix: Move it down slightly so it's not stuck to the status bar area */
+  top: -5px; 
+  right: 0px; 
+  
+  /* 🟢 Fix: Larger touch target (40px) but consistent size */
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
+  z-index: 10;
+  
+  /* 🟢 Fix: Center the icon perfectly */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.profileSettingsIcon {
-  position: absolute;
+.profileSettingsBtn img {
+  /* 🟢 Fix: Force icon to standard 24px size */
   width: 32px;
   height: 32px;
-  transition: transform 0.25s ease, opacity 0.2s ease;
+  display: block;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.profileSettingsIcon.filled {
-  opacity: 0;
-}
-
-.profileSettingsBtn:hover .outline {
-  opacity: 0;
-}
-
-.profileSettingsBtn:hover .filled {
-  opacity: 1;
-}
-
-.profileSettingsBtn:hover .profileSettingsIcon {
+.profileSettingsBtn:hover img {
   transform: rotate(25deg);
 }
 
-/* Stats Row */
+/* --- STATS ROW --- */
 .profileStatsRow {
   display: flex;
-  gap: 8px;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  padding: 15px;
+  margin-bottom: 10px;
 }
 
-.profileStatCard {
-  flex: 1;
-  padding: 10px 8px;
+.profileStatItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  flex: 1;
 }
 
 .profileStatLabel {
@@ -138,7 +131,7 @@
   color: #125316;
 }
 
-/* Sections & Progress Bars */
+/* --- SECTIONS & PROGRESS BARS --- */
 .profileSection {
   width: 100%;
 }
@@ -164,12 +157,27 @@
 .profileSectionMeta {
   font-size: 12px;
   color: #4d6f4f;
+  cursor: pointer;
 }
 
 .profileSectionText {
   margin: 6px 0 0;
   font-size: 13px;
   color: #4d6f4f;
+  text-align: center;
+}
+
+/* Goal Progress Bars */
+.profileGoalRow {
+  margin-bottom: 10px;
+}
+
+.profileGoalInfo {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #1f3d1f;
 }
 
 .profileProgressTrack {
@@ -186,16 +194,63 @@
   background: #61b329;
 }
 
-.profileProgressFillSoft {
-  background: #8acb7f;
+/* --- HISTORY ITEMS (New Additions) --- */
+.historyCardItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
-/* Action Buttons */
+.historyLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.historyIconBadge {
+  font-size: 20px;
+  background: #f4f8f1;
+  width: 40px; 
+  height: 40px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  border-radius: 10px;
+}
+
+.historyTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f3d1f;
+}
+
+.historySubtitle {
+  font-size: 12px;
+  color: #88a888;
+}
+
+.historyRight {
+  text-align: right;
+}
+
+.historyValue {
+  font-size: 14px; 
+  font-weight: 700; 
+  color: #1f3d1f;
+}
+
+.historySubValue {
+  font-size: 11px; 
+  color: #61b329;
+}
+
+/* --- ACTION BUTTONS --- */
 .profileActions {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .profilePrimaryButton,

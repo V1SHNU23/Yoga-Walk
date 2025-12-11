@@ -1,203 +1,162 @@
 import { useState, useEffect } from "react";
 import Card from "../components/Card.jsx";
+import "../styles/profile.css";
+
+// Icons
 import SettingsIcon from "../icons/settings.svg";
-import SettingsIconFill from "../icons/settings-fill.svg";
 
 export default function ProfilePage({ onChangePage }) {
-  // 1. State for User Stats (Default to 0)
-  const [stats, setStats] = useState({
-    walks: 0,
-    minutes: 0,
-    poses: 0,
-    weeklyProgress: 0, 
-    streak: 1, // Default streak for now
-  });
-
-  // 2. State for the History List
   const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ walks: 0, minutes: 0, poses: 0 });
+  
+  // 🟢 1. NEW STATE: Controls whether we show 3 items or ALL items
+  const [showAll, setShowAll] = useState(false);
+  
+  const apiBase = "http://localhost:5000";
 
-  // 3. Load Data from LocalStorage on Startup
   useEffect(() => {
-    const savedData = JSON.parse(localStorage.getItem("userWalkHistory") || "[]");
-    setHistory(savedData);
-
-    // Calculate Totals
-    const totals = savedData.reduce(
-      (acc, walk) => ({
-        walks: acc.walks + 1,
-        minutes: acc.minutes + (walk.duration || 0),
-        poses: acc.poses + (walk.poses || 0),
-      }),
-      { walks: 0, minutes: 0, poses: 0 }
-    );
-
-    // Calculate Weekly Progress (Example: Goal is 5 walks a week)
-    const weeklyGoal = 5;
-    const progress = Math.min(totals.walks / weeklyGoal, 1.0);
-
-    setStats({
-      ...totals,
-      streak: 3, // Hardcoded streak for now (requires complex date logic)
-      weeklyProgress: progress,
-    });
+    fetch(`${apiBase}/api/walk_history`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch");
+        return res.json();
+      })
+      .then((data) => {
+        const historyData = data.history || [];
+        setHistory(historyData);
+        
+        const totalDist = historyData.reduce((acc, curr) => acc + (curr.DistanceKm || 0), 0);
+        const totalPoses = historyData.reduce((acc, curr) => acc + (curr.PosesCompleted || 0), 0);
+        
+        setStats({
+          walks: historyData.length,
+          km: totalDist.toFixed(1),
+          poses: totalPoses
+        });
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
   }, []);
 
-  // Utility to clear data (for testing)
-  const handleClearData = () => {
-    if (confirm("Reset all walk history?")) {
-      localStorage.removeItem("userWalkHistory");
-      setStats({ walks: 0, minutes: 0, poses: 0, weeklyProgress: 0, streak: 1 });
-      setHistory([]);
-    }
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
+
+  // 🟢 2. LOGIC: Determine which items to display
+  // If showAll is true, show everything. If false, only show the first 3.
+  const displayedHistory = history.slice(0, 3);
 
   return (
     <div className="profilePage">
-      {/* gradient background handled purely in CSS */}
-      <div className="profileBackground" />
+      <div className="profileBackground"></div>
 
-      {/* content */}
       <div className="profileInner">
-        {/* header */}
-        <header className="profileHeader">
-          {/* settings button */}
-          <button
-            type="button"
+        
+        {/* HEADER */}
+        <div className="profileHeader">
+          <button 
             className="profileSettingsBtn"
-            onClick={() => onChangePage && onChangePage("settings")}
+            onClick={() => onChangePage("settings")} 
           >
-            <img
-              src={SettingsIcon}
-              className="profileSettingsIcon outline"
-              alt="Open settings"
-            />
-            <img
-              src={SettingsIconFill}
-              className="profileSettingsIcon filled"
-              alt=""
-              aria-hidden="true"
-            />
+             <img src={SettingsIcon} alt="Settings" />
           </button>
 
           <div className="profileAvatar">
             <span className="profileAvatarInitial">V</span>
           </div>
+          <h2 className="profileName">Vishnu</h2>
+          <p className="profileLevel">Yoga Walker • Lvl 3</p>
+        </div>
 
-          <h1 className="profileName">Vishnu</h1>
-          <p className="profileStreak">{stats.streak} day streak</p>
-        </header>
-
-        {/* stats row (NOW DYNAMIC) */}
-        <section className="profileStatsRow">
-          <Card className="profileStatCard">
-            <div className="profileStatLabel">Walks</div>
-            <div className="profileStatValue">{stats.walks}</div>
-          </Card>
-
-          <Card className="profileStatCard">
-            <div className="profileStatLabel">Minutes</div>
-            <div className="profileStatValue">{stats.minutes}</div>
-          </Card>
-
-          <Card className="profileStatCard">
-            <div className="profileStatLabel">Poses</div>
-            <div className="profileStatValue">{stats.poses}</div>
-          </Card>
-        </section>
-
-        {/* weekly progress (NOW DYNAMIC) */}
-        <section className="profileSection">
-          <Card className="profileCard">
-            <div className="profileSectionHeader">
-              <h2 className="profileSectionTitle">This week</h2>
-              <span className="profileSectionMeta">
-                {Math.round(stats.weeklyProgress * 100)}%
-              </span>
-            </div>
-
-            <div className="profileProgressTrack">
-              <div
-                className="profileProgressFill"
-                style={{ width: `${stats.weeklyProgress * 100}%` }}
-              />
-            </div>
-
-            <p className="profileSectionText">
-              {stats.walks} walks completed this week
-            </p>
-          </Card>
-        </section>
-
-        {/* level card (Kept as prototype for now) */}
-        <section className="profileSection">
-          <Card className="profileCard">
-            <div className="profileSectionHeader">
-              <h2 className="profileSectionTitle">Current level</h2>
-              <span className="profileSectionMeta">Tranquil Seeker</span>
-            </div>
-
-            <div className="profileProgressTrack">
-              <div
-                className="profileProgressFill profileProgressFillSoft"
-                style={{ width: "45%" }}
-              />
-            </div>
-
-            <p className="profileSectionText">
-              Keep walking to unlock the next level.
-            </p>
-          </Card>
-        </section>
-
-        {/* NEW: Recent History Section */}
-        <section className="profileSection">
-          <div className="profileSectionHeader" style={{marginBottom: '10px'}}>
-             <h2 className="profileSectionTitle" style={{color: '#1f3d1f', fontSize:'18px'}}>Recent History</h2>
-             {history.length > 0 && (
-               <button onClick={handleClearData} style={{border:'none', background:'transparent', color:'#e74c3c', fontSize:'12px', fontWeight:'600'}}>Reset</button>
-             )}
+        {/* STATS ROW */}
+        <div className="profileStatsRow">
+          <div className="profileStatItem">
+            <span className="profileStatValue">{stats.km}</span>
+            <span className="profileStatLabel">Total km</span>
           </div>
-          
-          {history.length === 0 ? (
-            <div style={{textAlign:'center', padding:'20px', color:'#88a888', background:'rgba(255,255,255,0.6)', borderRadius:'16px'}}>
-              No walks yet. Go start one! 🍂
+          <div className="profileStatItem">
+            <span className="profileStatValue">{stats.walks}</span>
+            <span className="profileStatLabel">Walks</span>
+          </div>
+          <div className="profileStatItem">
+            <span className="profileStatValue">{stats.poses}</span>
+            <span className="profileStatLabel">Poses</span>
+          </div>
+        </div>
+
+        {/* GOALS SECTION */}
+        <div className="profileSection">
+          <div className="profileSectionHeader">
+            <h3 className="profileSectionTitle">Weekly Goals</h3>
+          </div>
+          <Card className="profileCard">
+            <div className="profileGoalRow">
+              <div className="profileGoalInfo">
+                <span className="profileGoalTitle">Walk 15km</span>
+                <span className="profileGoalProgress">12.5 / 15 km</span>
+              </div>
+              <div className="profileProgressTrack">
+                <div className="profileProgressFill" style={{ width: "80%" }}></div>
+              </div>
             </div>
-          ) : (
-            <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-              {history.map((walk) => (
-                <Card key={walk.id} className="profileCard" style={{padding:'12px', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                  <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
-                    <div style={{fontSize:'20px', background:'#f4f8f1', width:'40px', height:'40px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'10px'}}>🧘</div>
+          </Card>
+        </div>
+
+        {/* HISTORY SECTION */}
+        <div className="profileSection">
+          <div className="profileSectionHeader">
+            <h3 className="profileSectionTitle">Recent History</h3>
+            
+            {/* 🟢 3. TOGGLE BUTTON: Only show if history has more than 3 items */}
+            {history.length > 3 && (
+              <span 
+              className="profileSectionMeta" 
+              onClick={() => onChangePage("history")} /* <-- Changed! */
+              style={{ cursor: "pointer", userSelect: "none" }}
+            >
+              See All
+            </span>
+            )}
+          </div>
+
+          <div className="profileHistoryList">
+            {loading ? (
+              <p className="profileSectionText">Loading history...</p>
+            ) : history.length === 0 ? (
+               <p className="profileSectionText">No walks yet.</p>
+            ) : (
+              // 🟢 4. RENDER: Map over the filtered 'displayedHistory' list
+              displayedHistory.map((walk) => (
+                <Card key={walk.WalkID} className="profileCard historyCardItem">
+                  <div className="historyLeft">
+                    <div className="historyIconBadge">🧘</div>
                     <div>
-                      <div style={{fontSize:'14px', fontWeight:'700', color:'#1f3d1f'}}>{walk.date}</div>
-                      <div style={{fontSize:'12px', color:'#88a888'}}>{walk.time}</div>
+                      <div className="historyTitle">{formatDate(walk.WalkDate)}</div>
+                      <div className="historySubtitle">Yoga Walk</div>
                     </div>
                   </div>
-                  <div style={{textAlign:'right'}}>
-                    <div style={{fontSize:'14px', fontWeight:'700', color:'#1f3d1f'}}>{walk.distance} km</div>
-                    <div style={{fontSize:'11px', color:'#61b329'}}>{walk.duration} min</div>
+                  <div className="historyRight">
+                    <div className="historyValue">{walk.DistanceKm.toFixed(2)} km</div>
+                    <div className="historySubValue">{walk.DurationMinutes} min</div>
                   </div>
                 </Card>
-              ))}
-            </div>
-          )}
-        </section>
+              ))
+            )}
+          </div>
+        </div>
 
-        {/* actions */}
-        <section className="profileActions">
-          <button
-            type="button"
-            className="profilePrimaryButton"
-          >
-            Edit profile
-          </button>
-          <button
-            type="button"
-            className="profileSecondaryButton"
-          >
-            View achievements
-          </button>
-        </section>
+        {/* ACTIONS */}
+        <div className="profileActions">
+          <button className="profilePrimaryButton">Edit Profile</button>
+          <button className="profileSecondaryButton">Achievements</button>
+        </div>
+        
+        <div style={{height: "80px"}}></div>
       </div>
     </div>
   );

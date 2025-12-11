@@ -149,6 +149,8 @@
   padding-bottom: 0; 
   
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 1001;
+  position: absolute;
 }
 
 .mapCheckpointSheet form {
@@ -362,7 +364,12 @@
    ========================================= */
 
 .action-buttons-abstract { 
-  display: flex; gap: 8px; margin-top: 8px; margin-bottom: 4px;
+  display: flex; 
+  gap: 8px; margin-top: 8px; 
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 1001;
+  pointer-events: auto;
 }
 .btn-abstract { flex: 1; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; }
 .btn-primary { background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); color: #fff; }
