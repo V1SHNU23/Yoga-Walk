@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Card from "../components/Card.jsx";
-import AppNav from "../components/AppNav.jsx"; // Ensure you have this component
+import AppNav from "../components/AppNav.jsx";
 import "../styles/profile.css";
 
 // Icons

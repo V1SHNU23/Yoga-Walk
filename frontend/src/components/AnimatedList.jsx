@@ -1,4 +1,3 @@
-// src/components/AnimatedList.jsx
 import { useRef, useState, useEffect } from "react";
 import { motion, useInView } from "motion/react";
 import "./AnimatedList.css";
@@ -30,7 +29,7 @@ const AnimatedItem = ({
 
 const AnimatedList = ({
   items,
-  renderItem, // (item, index, isSelected) => JSX
+  renderItem, 
   onItemSelect,
   showGradients = true,
   enableArrowNavigation = true,

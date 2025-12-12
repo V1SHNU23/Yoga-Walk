@@ -7,13 +7,12 @@ app = Flask(__name__)
 CORS(app)
 
 # --- DATABASE CONFIGURATION ---
-# 🟢 ACTION REQUIRED: Enter your SQL Server credentials inside the quotes below.
 CONN_STR = (
     r'DRIVER={ODBC Driver 17 for SQL Server};'
     r'SERVER=139.99.183.1\SQL2019;'
     r'DATABASE=kailash_yogawalk;'
-    r'UID=solomon.s;'  # <-- Put your Username here
-    r'PWD=87wbc9F_;'  # <-- Put your Password here
+    r'UID=solomon.s;'  
+    r'PWD=87wbc9F_;'  
 )
 
 def get_db():
@@ -34,7 +33,6 @@ def close_db(error):
         db.close()
 
 # --- HELPER FUNCTIONS ---
-
 def generate_checkpoints(origin, destination, count):
     """Generates simple linear checkpoints between origin and destination."""
     checkpoints = []
@@ -48,7 +46,6 @@ def generate_checkpoints(origin, destination, count):
     return checkpoints
 
 # --- ROUTES ---
-
 @app.route("/api/poses", methods=["GET"])
 def get_all_poses():
     """Fetches all yoga poses for the Library Page."""

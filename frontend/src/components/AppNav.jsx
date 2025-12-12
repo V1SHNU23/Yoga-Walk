@@ -1,12 +1,9 @@
 import HomeIcon from '../icons/home.svg';
 import HomeIconFill from '../icons/home-fill.svg';
-
 import MapIcon from '../icons/map.svg';
 import MapIconFill from '../icons/map-fill.svg';
-
 import LibIcon from '../icons/lib.svg';
 import LibIconFill from '../icons/lib-fill.svg';
-
 import ProfileIcon from '../icons/profile.svg';
 import ProfileIconFill from '../icons/profile-fill.svg';
 

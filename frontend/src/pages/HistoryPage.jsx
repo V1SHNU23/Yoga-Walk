@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import Card from "../components/Card.jsx";
-import "../styles/history.css"; // We will create this next
-import "../styles/profile.css"; // Reuse card styles
-
-// Icons
+import "../styles/history.css"; 
+import "../styles/profile.css"; 
 import BackIcon from "../icons/back.svg";
 import SearchIcon from "../icons/search.svg";
 

@@ -2,11 +2,10 @@ import React from "react";
 import { motion } from "framer-motion";
 import Card from "./Card"; 
 import "./WalkSummaryCard.css"; 
-
-// --- UPDATED ICONS ---
 import distanceIcon from "../icons/road.svg"; 
 import durationIcon from "../icons/clock.svg"; 
 import posesIcon from "../icons/pose.svg";
+import FireIcon from "../icons/pose.svg";
 
 const WalkSummaryCard = ({ distance, duration, checkpoints, onSave, onClose }) => {
   return (

@@ -146,6 +146,14 @@
 .libList {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;          
+  padding-bottom: 0px;      
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; 
+}
+
+.libList::-webkit-scrollbar {
+  display: none;
 }
 
 /* Pose Card styling */

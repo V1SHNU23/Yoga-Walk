@@ -9,7 +9,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import redMarker from "../icons/red-marker.svg";
-import SearchIcon from "../icons/search.svg"; // Import the search icon
+import SearchIcon from "../icons/search.svg"; 
 
 // --- STATIC DATA FOR CARD CONTENT ---
 const POSE_DETAILS = {
