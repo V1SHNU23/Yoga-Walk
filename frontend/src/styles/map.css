@@ -425,6 +425,31 @@
   border-radius: 99px;
 }
 
+.cp-benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px; 
+  padding: 0;
+  margin: 0;
+}
+
+.cp-benefit-item {
+  display: flex;
+  align-items: flex-start; 
+  gap: 10px; 
+  font-size: 15px;
+  color: #1f3d1f;
+  line-height: 1.4;
+}
+
+.cp-benefit-icon {
+  width: 18px;       
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;    
+  margin-top: 2px;   
+}
+
 /* Improved Close Button (Circle) */
 .cp-close-btn {
   width: 32px;

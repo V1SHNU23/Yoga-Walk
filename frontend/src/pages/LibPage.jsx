@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import Card from "../components/Card.jsx";
 import AnimatedList from "../components/AnimatedList.jsx";
-
-// Icons
 import SearchIcon from "../icons/search.svg";
 import StarIcon from "../icons/star.svg";
 import StarIconFill from "../icons/star-fill.svg";
-import BackIcon from "../icons/back.svg"; // Make sure you have this icon!
+import BackIcon from "../icons/back.svg"; 
 
 function LibrarySearch({ value, onChange }) {
   const [open, setOpen] = useState(false);

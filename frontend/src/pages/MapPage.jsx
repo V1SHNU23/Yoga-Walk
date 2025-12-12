@@ -12,7 +12,7 @@ import { Reorder, useDragControls } from "motion/react";
 import UserLocationIcon from "../icons/User-Location.svg"; 
 import UserLocationFillIcon from "../icons/User-Location-Fill.svg"; 
 import WalkSummaryCard from "../components/WalkSummaryCard";
-import RouteIcon from "../icons/route.svg";
+import TickIcon from "../icons/tick.svg"; 
 
 // --- STATIC DATA FOR CARD CONTENT ---
 const POSE_DETAILS = {
@@ -345,6 +345,8 @@ export default function MapPage() {
   // --- SWIPEABLE CARD STATE ---
   const [activeSlide, setActiveSlide] = useState(0); 
   const slidesRef = useRef(null); 
+  const [isZooming, setIsZooming] = useState(false);
+  const isMounted = useRef(false);
 
   // --- LOCATION & HEADING (COMPASS) STATE ---
   // OPTIMIZATION: Initialize with cache if available for instant load
@@ -405,10 +407,6 @@ export default function MapPage() {
   const walkStartTimeRef = useRef(null);
 
   useEffect(() => {
-    localStorage.removeItem("activeWalkState");
-  }, []);
-
-  useEffect(() => {
     if (map && userLocation && !hasCenteredOnLoad) {
       // Use setView for an instant snap, or flyTo for smooth.
       // We use setView here to avoid the "Sydney -> User" swoosh on refresh.
@@ -466,8 +464,11 @@ export default function MapPage() {
 
   // --- 2. SAVE STATE ON CHANGE ---
   useEffect(() => {
-    // Only save if we have actual data (origin or destination)
-    if (destination || origin) {
+    if (!isMounted.current) {
+        isMounted.current = true;
+        return;
+    }
+    if (origin || destination) {
         const stateToSave = {
             origin,
             destination,
@@ -477,7 +478,7 @@ export default function MapPage() {
             isWalking,
             currentStep,
             activeRouteIndex,
-            visitedIndices: Array.from(visitedIndices), // Convert Set to Array for storage
+            visitedIndices: Array.from(visitedIndices), // Convert Set to Array
             startTime: walkStartTimeRef.current,
             selectionStep,
             sheetOpen,
@@ -485,6 +486,9 @@ export default function MapPage() {
             destinationLabel
         };
         localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
+    } else {
+        // NEW: This ensures the "Old Walk" is strictly removed when you reset.
+        localStorage.removeItem("activeWalkState");
     }
   }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel]);
 
@@ -1043,6 +1047,24 @@ export default function MapPage() {
       setVisitedIndices(new Set()); 
       setSheetOpen(true);
       walkStartTimeRef.current = Date.now();
+
+      // NEW: Hide route -> Fly -> Show Route (Draws it)
+      setIsZooming(true);
+
+      if (map && userLocation) {
+        map.flyTo(userLocation, 18, {
+          animate: true,
+          duration: 2.0 // Cinematic 2-second flight
+        });
+
+        // Wait for flight to finish, then reveal the route
+        setTimeout(() => {
+            setIsZooming(false);
+        }, 2000);
+      } else {
+         // Fallback if map isn't ready
+         setIsZooming(false);
+      }
     }
   }
 
@@ -1108,6 +1130,7 @@ export default function MapPage() {
   };
 
   function handleReset() {
+    localStorage.removeItem("activeWalkStat");
     setOrigin(null);
     setIsOriginCurrentLocation(false);
     setDestination(null);
@@ -1131,10 +1154,6 @@ export default function MapPage() {
         map.flyTo(userLocation, 15, { animate: true });
     }
   }
-
-  // localStorage.removeItem("activeWalkState"); 
-  // Commented out to prevent accidental clearing during refreshes, 
-  // handleReset() clears it when walk is actually done/cancelled.
 
   // --- EVENT HANDLERS ---
   async function handleMapClick(latlng) {
@@ -1305,7 +1324,7 @@ export default function MapPage() {
           })}
 
           {/* Render ACTIVE route last */}
-          {routes[activeRouteIndex] && (
+          {routes[activeRouteIndex] && !isZooming && (
             <Polyline
               key={routes[activeRouteIndex].id}
               positions={routes[activeRouteIndex].coords}
@@ -1341,35 +1360,67 @@ export default function MapPage() {
               ref={slidesRef} 
               onScroll={handleSlideScroll}
             >
-              {/* SLIDE 1: OVERVIEW */}
+              {/* SLIDE 1: OVERVIEW & INSTRUCTIONS */}
               <div className="cp-slide">
                 <div className="cp-detail-meta">
                   <span className="cp-meta-item">⏱ {selectedCheckpoint.exercise?.duration || "30 sec"}</span>
                   <span className="cp-meta-item">🧘 Beginner Friendly</span>
                 </div>
+                
+                {/* DYNAMIC GIF FROM DB */}
                 <div className="cp-gif-placeholder">
-                  {POSE_DETAILS[selectedCheckpoint.exercise?.name]?.gif ? (
-                    <img src={POSE_DETAILS[selectedCheckpoint.exercise?.name].gif} alt="Pose" className="cp-gif-img" />
+                  {selectedCheckpoint.exercise?.gif ? (
+                    <img 
+                      src={selectedCheckpoint.exercise.gif} 
+                      alt={selectedCheckpoint.exercise.name} 
+                      className="cp-gif-img" 
+                      onError={(e) => { e.target.style.display = 'none'; }} // Hide if link is broken
+                    />
                   ) : (
-                    <span className="cp-gif-label">GIF Placeholder</span>
+                    <div className="cp-gif-label">
+                        <span style={{fontSize: '40px'}}>🧘</span>
+                        <p>No Animation</p>
+                    </div>
                   )}
                 </div>
+
+                {/* DYNAMIC INSTRUCTIONS FROM DB */}
                 <p className="cp-detail-desc">
-                  Stop and perform this pose. Take a deep breath and enjoy the surroundings!
+                  {selectedCheckpoint.exercise?.instructions 
+                    ? selectedCheckpoint.exercise.instructions 
+                    : "Stop and perform this pose. Take a deep breath and enjoy the surroundings!"}
                 </p>
               </div>
 
-              {/* SLIDE 2: BENEFITS */}
+              {/* SLIDE 2: BENEFITS FROM DB */}
               <div className="cp-slide">
                 <h3 style={{fontSize: '18px', marginBottom: '16px', color: '#1f3d1f'}}>Benefits</h3>
-                <ul className="cp-benefits-list">
-                  {(POSE_DETAILS[selectedCheckpoint.exercise?.name] || POSE_DETAILS["default"]).benefits.map((benefit, i) => (
-                    <li key={i} className="cp-benefit-item">
-                      <span className="cp-benefit-icon">✓</span>
-                      {benefit}
-                    </li>
-                  ))}
-                </ul>
+                
+                <div className="cp-benefits-list">
+                  {selectedCheckpoint.exercise?.benefits ? (
+                    selectedCheckpoint.exercise.benefits.split(',').map((benefit, i) => {
+                      const text = benefit.trim();
+                      const formattedText = text.charAt(0).toUpperCase() + text.slice(1);
+
+                      return (
+                        <div key={i} className="cp-benefit-item">
+                          {/* UPDATED: Use IMG tag instead of span */}
+                          <img 
+                            src={TickIcon} 
+                            alt="Check" 
+                            className="cp-benefit-icon" 
+                          />
+                          {formattedText}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="cp-benefit-item">
+                      <img src={TickIcon} alt="Check" className="cp-benefit-icon" />
+                      Rejuvenates the mind and body.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* SLIDE 3: REFLECTION */}
@@ -1377,7 +1428,7 @@ export default function MapPage() {
                 <div className="cp-question-container">
                   <span className="cp-question-icon">🤔</span>
                   <p className="cp-question-text">
-                    {(POSE_DETAILS[selectedCheckpoint.exercise?.name] || POSE_DETAILS["default"]).question}
+                     How did your body feel while holding this pose?
                   </p>
                 </div>
                 <p className="cp-detail-desc" style={{textAlign: 'center', marginTop: '12px'}}>
@@ -1392,7 +1443,7 @@ export default function MapPage() {
               </div>
             </div>
 
-            {/* PAGINATION DOTS (Clickable) */}
+            {/* PAGINATION DOTS */}
             <div className="cp-pagination">
                 {[0, 1, 2].map((i) => (
                     <div 
