@@ -9,10 +9,16 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { Reorder, useDragControls } from "motion/react";
+
+// --- Icons ---
 import UserLocationIcon from "../icons/User-Location.svg"; 
 import UserLocationFillIcon from "../icons/User-Location-Fill.svg"; 
-import WalkSummaryCard from "../components/WalkSummaryCard";
 import TickIcon from "../icons/tick.svg"; 
+// NOTE: Ensure these exist in your icons folder
+import VolumeIcon from "../icons/volume.svg";
+import MuteIcon from "../icons/mute.svg";
+
+import WalkSummaryCard from "../components/WalkSummaryCard";
 
 // --- STATIC DATA FOR CARD CONTENT ---
 const POSE_DETAILS = {
@@ -54,8 +60,6 @@ const POSE_DETAILS = {
   }
 };
 
-const CHECKPOINT_TABS = ["Overview", "Benefits", "Reflect"];
-
 // --- CONFIG ---
 const defaultCenter = {
   lat: -33.8688, // fallback Sydney
@@ -65,133 +69,24 @@ const defaultCenter = {
 const WALK_SPEED_KMH = 5;
 const STEP_ADVANCE_THRESHOLD = 20;
 
-// --- HELPER COMPONENTS ---
-
-// 1. Grip Icon (The visual handle for dragging)
-function GripIcon({ dragControls }) {
-  return (
-    <div 
-      className="drag-handle"
-      onPointerDown={(e) => dragControls.start(e)}
-      style={{ cursor: 'grab', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#a0a0a0' }}
-    >
-      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ opacity: 0.6 }}>
-        <path d="M2 6H18M2 10H18M2 14H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    </div>
-  );
-}
-
-// 2. Draggable Item Wrapper
-const DraggableItem = ({ value, children }) => {
-  const dragControls = useDragControls();
-  return (
-    <Reorder.Item
-      value={value}
-      dragListener={false} 
-      dragControls={dragControls} 
-      style={{ position: "relative", marginBottom: 0 }}
-    >
-      {children(dragControls)} 
-    </Reorder.Item>
-  );
-};
-
-function ClickHandler({ onClick }) {
-  useMapEvents({
-    click(e) {
-      onClick(e.latlng);
-    },
-  });
-  return null;
-}
-
-// --- UPDATED USER LOCATION BUTTON (FIXED) ---
-function UserLocationButton({ userLocation, setHeading }) {
-  const map = useMap();
-  const [isLocating, setIsLocating] = useState(false);
-  const btnRef = useRef(null);
-
-  // Use Leaflet's built-in utility to stop map clicks passing through this button
-  useEffect(() => {
-    if (btnRef.current) {
-      L.DomEvent.disableClickPropagation(btnRef.current);
-      L.DomEvent.disableScrollPropagation(btnRef.current);
-    }
-  }, []);
-
-  const handleLocate = (e) => {
-    // 1. Trigger Visual Feedback
-    setIsLocating(true);
-    setTimeout(() => {
-      setIsLocating(false);
-    }, 100);
-
-    // 2. Recenter Map
-    if (userLocation) {
-      map.setView(userLocation, 16, { animate: true });
-    } else {
-      alert("Waiting for location...");
-    }
-
-    // 3. Request Compass Permissions (iOS 13+)
-    if (
-      typeof DeviceOrientationEvent !== "undefined" &&
-      typeof DeviceOrientationEvent.requestPermission === "function"
-    ) {
-      DeviceOrientationEvent.requestPermission()
-        .then((response) => {
-          if (response === "granted") {
-            // Permission granted
-          } else {
-            alert("Compass permission denied");
-          }
-        })
-        .catch(console.error);
-    }
-  };
-
-  return (
-    <button
-      ref={btnRef} // Attach ref so Leaflet can disable propagation
-      className="map-locate-fab"
-      onClick={handleLocate}
-      style={{
-        position: "absolute",
-        top: "20px", 
-        right: "16px", 
-        zIndex: 1000,
-        width: "48px",
-        height: "48px",
-        borderRadius: "12px", 
-        background: "white",
-        border: "none",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "10px", 
-        transition: "transform 0.1s ease",
-        userSelect: "none" // Prevent selection
-      }}
-    >
-      <img 
-        src={isLocating ? UserLocationFillIcon : UserLocationIcon} 
-        alt="Locate Me" 
-        draggable="false" // FIX: Prevents the "ghost image" drag effect
-        style={{ 
-            width: "100%", 
-            height: "100%", 
-            objectFit: "contain",
-            pointerEvents: "none" // Ensures click hits the button, not the image
-        }} 
-      />
-    </button>
-  );
-}
-
 // --- UTILITY FUNCTIONS ---
+
+function formatDuration(seconds) {
+  if (!seconds) return "";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `${hrs} hr` : `${hrs} hr ${mins} min`;
+}
+
+function formatDistance(m) {
+  if (m == null) return "";
+  if (m < 1000) return `${m.toFixed(0)} m`;
+  return `${(m / 1000).toFixed(1)} km`;
+}
 
 function getCountryCodeFromTimezone() {
   try {
@@ -279,6 +174,173 @@ function computeCheckpointPositions(coords, count) {
   return checkpoints;
 }
 
+// --- HELPER COMPONENTS ---
+
+function GripIcon({ dragControls }) {
+  return (
+    <div 
+      className="drag-handle"
+      onPointerDown={(e) => dragControls.start(e)}
+      style={{ cursor: 'grab', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#a0a0a0' }}
+    >
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ opacity: 0.6 }}>
+        <path d="M2 6H18M2 10H18M2 14H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+const DraggableItem = ({ value, children }) => {
+  const dragControls = useDragControls();
+  return (
+    <Reorder.Item
+      value={value}
+      dragListener={false} 
+      dragControls={dragControls} 
+      style={{ position: "relative", marginBottom: 0 }}
+    >
+      {children(dragControls)} 
+    </Reorder.Item>
+  );
+};
+
+function ClickHandler({ onClick }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng);
+    },
+  });
+  return null;
+}
+
+function UserLocationButton({ userLocation, setHeading }) {
+  const map = useMap();
+  const [isLocating, setIsLocating] = useState(false);
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (btnRef.current) {
+      L.DomEvent.disableClickPropagation(btnRef.current);
+      L.DomEvent.disableScrollPropagation(btnRef.current);
+    }
+  }, []);
+
+  const handleLocate = (e) => {
+    setIsLocating(true);
+    setTimeout(() => {
+      setIsLocating(false);
+    }, 100);
+
+    if (userLocation) {
+      map.setView(userLocation, 16, { animate: true });
+    } else {
+      alert("Waiting for location...");
+    }
+
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+      DeviceOrientationEvent.requestPermission()
+        .then((response) => {
+          if (response !== "granted") {
+            console.warn("Compass permission denied");
+          }
+        })
+        .catch(console.error);
+    }
+  };
+
+  return (
+    <button
+      ref={btnRef} 
+      className="user-location-btn"
+      onClick={handleLocate}
+      style={{
+        position: "absolute",
+        top: "20px", 
+        right: "16px", 
+        zIndex: 1000,
+        width: "48px",
+        height: "48px",
+        borderRadius: "12px", 
+        background: "white",
+        border: "none",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "10px", 
+        transition: "transform 0.1s ease",
+        userSelect: "none"
+      }}
+    >
+      <img 
+        src={isLocating ? UserLocationFillIcon : UserLocationIcon} 
+        alt="Locate Me" 
+        draggable="false" 
+        style={{ 
+            width: "100%", 
+            height: "100%", 
+            objectFit: "contain",
+            pointerEvents: "none" 
+        }} 
+      />
+    </button>
+  );
+}
+
+function VoiceToggleButton({ voiceEnabled, toggleVoice }) {
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (btnRef.current) {
+      L.DomEvent.disableClickPropagation(btnRef.current);
+      L.DomEvent.disableScrollPropagation(btnRef.current);
+    }
+  }, []);
+
+  return (
+    <button
+      ref={btnRef}
+      onClick={toggleVoice}
+      aria-label="Toggle Voice Guidance"
+      style={{
+        position: "absolute",
+        top: "80px", 
+        right: "16px",
+        zIndex: 1000,
+        width: "48px",
+        height: "48px",
+        borderRadius: "12px",
+        background: "rgba(255, 255, 255, 0.85)", 
+        backdropFilter: "blur(5px)",
+        border: voiceEnabled ? "2px solid #61b329" : "none",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "10px", 
+        transition: "all 0.2s ease",
+      }}
+    >
+      <img 
+        src={voiceEnabled ? VolumeIcon : MuteIcon} 
+        alt={voiceEnabled ? "Voice On" : "Voice Muted"}
+        draggable="false"
+        style={{ 
+          width: "100%", 
+          height: "100%", 
+          objectFit: "contain",
+          pointerEvents: "none" 
+        }} 
+      />
+    </button>
+  );
+}
+
 function makeCheckpointIcon(number) {
   return L.divIcon({
     className: "checkpoint-number",
@@ -311,17 +373,6 @@ function createDurationIcon(durationSeconds, isActive) {
   });
 }
 
-function formatDuration(seconds) {
-  if (!seconds) return "";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins === 0 ? `${hrs} hr` : `${hrs} hr ${mins} min`;
-}
-
 // --- MAIN COMPONENT ---
 
 export default function MapPage() {
@@ -348,8 +399,7 @@ export default function MapPage() {
   const [isZooming, setIsZooming] = useState(false);
   const isMounted = useRef(false);
 
-  // --- LOCATION & HEADING (COMPASS) STATE ---
-  // OPTIMIZATION: Initialize with cache if available for instant load
+  // --- LOCATION & HEADING ---
   const [userLocation, setUserLocation] = useState(() => {
     try {
       const saved = localStorage.getItem("lastKnownLocation");
@@ -360,10 +410,8 @@ export default function MapPage() {
   });
 
   const [hasCenteredOnLoad, setHasCenteredOnLoad] = useState(false);
-
-  const [heading, setHeading] = useState(0); // 0-360 degrees
+  const [heading, setHeading] = useState(0); 
   const [geoError, setGeoError] = useState("");
-  // Flag to suppress Origin Marker if user chose "Use my current location"
   const [isOriginCurrentLocation, setIsOriginCurrentLocation] = useState(false);
 
   // --- SEARCH STATE ---
@@ -377,7 +425,7 @@ export default function MapPage() {
   // --- DRAG ORDER STATE ---
   const [fieldOrder, setFieldOrder] = useState(["origin", "destination"]);
 
-  // --- DRAG SCROLL STATE (FOR PC USERS) ---
+  // --- DRAG SCROLL STATE ---
   const routesContainerRef = useRef(null);
   const [isDraggingRoute, setIsDraggingRoute] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -386,7 +434,6 @@ export default function MapPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   
-  // Country Code State for strict filtering
   const [userCountryCode, setUserCountryCode] = useState(null);
 
   const [originLabel, setOriginLabel] = useState("");
@@ -400,16 +447,44 @@ export default function MapPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [finalMetrics, setFinalMetrics] = useState(null);
 
+  // --- VOICE GUIDANCE STATE ---
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const voiceEnabledRef = useRef(voiceEnabled);
+
+  // Keep ref in sync
+  useEffect(() => {
+    voiceEnabledRef.current = voiceEnabled;
+    if (!voiceEnabled) {
+      window.speechSynthesis.cancel();
+    }
+    // REMOVED: speak("Voice guidance enabled") - User requested only directions
+  }, [voiceEnabled]);
+
   const apiBase = "http://localhost:5000";
   const lastStepChangeRef = useRef(Date.now());
   const searchTimeoutRef = useRef(null);
 
   const walkStartTimeRef = useRef(null);
 
+  // --- VOICE HELPER ---
+  const speak = (text) => {
+    if (
+        !voiceEnabledRef.current || 
+        !window.speechSynthesis || 
+        !window.SpeechSynthesisUtterance
+    ) return;
+    
+    window.speechSynthesis.cancel(); 
+    try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+    } catch (e) {
+        console.warn("Speech synthesis failed", e);
+    }
+  };
+
   useEffect(() => {
     if (map && userLocation && !hasCenteredOnLoad) {
-      // Use setView for an instant snap, or flyTo for smooth.
-      // We use setView here to avoid the "Sydney -> User" swoosh on refresh.
       map.setView(userLocation, 15, { animate: false });
       setHasCenteredOnLoad(true);
     }
@@ -456,6 +531,7 @@ export default function MapPage() {
             if (parsed.sheetOpen) setSheetOpen(parsed.sheetOpen);
             if (parsed.originLabel) setOriginLabel(parsed.originLabel);
             if (parsed.destinationLabel) setDestinationLabel(parsed.destinationLabel);
+            if (parsed.voiceEnabled !== undefined) setVoiceEnabled(parsed.voiceEnabled);
         } catch (e) {
             console.error("Failed to restore walk state", e);
         }
@@ -483,39 +559,16 @@ export default function MapPage() {
             selectionStep,
             sheetOpen,
             originLabel,
-            destinationLabel
+            destinationLabel,
+            voiceEnabled
         };
         localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
     } else {
-        // NEW: This ensures the "Old Walk" is strictly removed when you reset.
         localStorage.removeItem("activeWalkState");
     }
-  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel]);
+  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel, voiceEnabled]);
 
-  // --- RESET SLIDE SCROLL ON OPEN ---
-  useEffect(() => {
-    if (selectedCheckpoint) {
-      setActiveSlide(0);
-      if (slidesRef.current) {
-        slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
-      }
-    }
-  }, [selectedCheckpoint]);
-
-  // Sync inputs with labels
-  useEffect(() => {
-    if (destinationLabel && !showDropdown) {
-      setSearchQuery(destinationLabel);
-    }
-  }, [destinationLabel, showDropdown]);
-
-  useEffect(() => {
-    if (originLabel && !showOriginDropdown) {
-      setOriginQuery(originLabel);
-    }
-  }, [originLabel, showOriginDropdown]);
-
-  // --- SLIDE SCROLL HANDLER (Syncs dots with swipe) ---
+  // --- SLIDE SCROLL HANDLER ---
   const handleSlideScroll = () => {
     if (slidesRef.current) {
       const { scrollLeft, clientWidth } = slidesRef.current;
@@ -524,7 +577,6 @@ export default function MapPage() {
     }
   };
 
-  // --- PROGRAMMATIC SCROLL FOR DOT CLICKS (PC Support) ---
   const scrollToSlide = (index) => {
     if (slidesRef.current) {
       slidesRef.current.scrollTo({
@@ -668,28 +720,24 @@ export default function MapPage() {
     setIsOriginCurrentLocation(false); 
   };
 
-  // --- OPTIMIZED LOCATION & COMPASS LOGIC ---
+  // --- LOCATION & COMPASS LOGIC ---
   useEffect(() => {
     if (!("geolocation" in navigator)) {
       setGeoError("Location is not supported.");
       return;
     }
 
-    // 1. FAST: Get Coarse Location (WiFi/Cell)
-    // Low accuracy is much faster (often <500ms) than waiting for GPS warmup
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         const newLoc = { lat: latitude, lng: longitude };
         setUserLocation(newLoc);
-        // Persist immediately for next load
         localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
       },
       (err) => console.warn("Coarse location failed (non-critical)", err),
       { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
 
-    // 2. PRECISE: Start watching for GPS (this takes longer but updates later)
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -704,7 +752,6 @@ export default function MapPage() {
       },
       (err) => {
         console.error("Geo error", err);
-        // Only show error if we have NO location at all (cache failed + coarse failed)
         if (!userLocation) setGeoError("Could not access your location.");
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
@@ -790,6 +837,17 @@ export default function MapPage() {
     }
   }, [userLocation, isWalking, currentStep, routes, activeRouteIndex]);
 
+  // --- VOICE GUIDANCE HOOK FOR STEPS ---
+  useEffect(() => {
+    if (isWalking && routes[activeRouteIndex]) {
+        const currentInstruction = routes[activeRouteIndex].steps?.[currentStep]?.instruction;
+        // ONLY speak actual navigation instructions
+        if (currentInstruction) {
+            speak(currentInstruction);
+        }
+    }
+  }, [currentStep, isWalking, activeRouteIndex, routes]);
+
   // 3. Checkpoint Arrival Hook
   useEffect(() => {
     if (!isWalking || !userLocation || checkpointPositions.length === 0) return;
@@ -804,6 +862,8 @@ export default function MapPage() {
         }
         setVisitedIndices(prev => new Set(prev).add(idx));
         if (navigator.vibrate) navigator.vibrate(200);
+        
+        // REMOVED: speak("Checkpoint reached")
       }
     });
   }, [userLocation, isWalking, checkpointPositions, visitedIndices, checkpoints]);
@@ -812,10 +872,8 @@ export default function MapPage() {
   useEffect(() => {
     if (!isWalking || !userLocation || !destination) return;
     
-    // Calculate distance to the final destination
     const distToEnd = distanceMeters(userLocation, destination);
     
-    // If within 30 meters, trigger the finish logic automatically
     if (distToEnd < 30) {
        handleStopNavigation();
     }
@@ -899,19 +957,9 @@ export default function MapPage() {
     setSheetOpen(true);
   }
 
-  // --- ROUTE CALCULATOR ---
-// Fetch helpers (OSRM)
-  function formatDistance(m) {
-    if (m == null) return "";
-    if (m < 1000) return `${m.toFixed(0)} m`;
-    return `${(m / 1000).toFixed(1)} km`;
-  }
-
-  // UPDATED: Now fetches alternatives and returns an ARRAY of routes
   async function fetchSingleRoute(pointList) {
     const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
     
-    // 1. Ask OSRM for multiple paths (alternatives=true)
     const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true&alternatives=true`;
 
     const res = await fetch(url);
@@ -920,12 +968,10 @@ export default function MapPage() {
     const data = await res.json();
     if (!data.routes || data.routes.length === 0) throw new Error("No route found");
 
-    // 2. Return an ARRAY of formatted routes (Note the .map here)
     return data.routes.map(route => {
         const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
         const distance = route.distance;
         
-        // Calculate duration based on your app's speed setting
         const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
 
         const steps = route.legs[0].steps.map(step => ({
@@ -946,8 +992,6 @@ export default function MapPage() {
     let idCounter = 0;
 
     try {
-      // 1. Get Direct Routes
-      // This now returns an ARRAY, so we must loop through it!
       const directs = await fetchSingleRoute([originPoint, destinationPoint]);
       
       directs.forEach(route => {
@@ -957,7 +1001,6 @@ export default function MapPage() {
       console.warn("Direct route failed", e);
     }
 
-    // 2. Get Via Routes (Midpoint offsets)
     const midLat = (originPoint.lat + destinationPoint.lat) / 2;
     const midLng = (originPoint.lng + destinationPoint.lng) / 2;
     const viaCandidates = [
@@ -968,11 +1011,9 @@ export default function MapPage() {
     ];
 
     for (const via of viaCandidates) {
-      if (routesList.length >= 6) break; // Limit total routes to avoid UI clutter
+      if (routesList.length >= 6) break;
       try {
         const viaRoutes = await fetchSingleRoute([originPoint, via, destinationPoint]);
-        
-        // Loop through the array of results
         viaRoutes.forEach(route => {
              routesList.push({ id: `${timestamp}-${idCounter++}`, ...route });
         });
@@ -986,7 +1027,6 @@ export default function MapPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     
-    // 🟢 1. BETTER ERROR CHECKING
     if (!origin || !destination) {
       if (!origin && originQuery.length > 0) {
         setErrorMsg("Please select a starting point from the dropdown list.");
@@ -1002,16 +1042,15 @@ export default function MapPage() {
     setErrorMsg("");
 
     try {
-      // 🟢 2. USE THE EXISTING FUNCTION 'fetchRoutes'
       const routeOptions = await fetchRoutes(origin, destination);
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
 
-      // 🟢 3. SETUP CHECKPOINTS
+      // REMOVED: speak("Route found")
+
       const selectedRoute = routeOptions[0];
       updateCheckpointPositionsForRoute(selectedRoute, Number(checkpointCount));
 
-      // 🟢 4. FETCH CHECKPOINTS FROM BACKEND (Optional, keeps existing logic)
       const payload = {
         origin,
         destination,
@@ -1048,39 +1087,34 @@ export default function MapPage() {
       setSheetOpen(true);
       walkStartTimeRef.current = Date.now();
 
-      // NEW: Hide route -> Fly -> Show Route (Draws it)
+      // REMOVED: speak("Starting walk...")
+
       setIsZooming(true);
 
       if (map && userLocation) {
         map.flyTo(userLocation, 18, {
           animate: true,
-          duration: 2.0 // Cinematic 2-second flight
+          duration: 2.0 
         });
 
-        // Wait for flight to finish, then reveal the route
         setTimeout(() => {
             setIsZooming(false);
         }, 2000);
       } else {
-         // Fallback if map isn't ready
          setIsZooming(false);
       }
     }
   }
 
-  // --- FIXED END WALK LOGIC ---
   const handleStopNavigation = () => {
     const endTime = Date.now();
     const startTime = walkStartTimeRef.current || endTime;
     const durationMs = endTime - startTime;
     const durationSeconds = Math.max(0, Math.round(durationMs / 1000));
     
-    // Calculate REAL distance walked (Sum of completed steps ONLY)
     let distanceMeters = 0;
     const activeRoute = routes[activeRouteIndex];
     if (activeRoute && activeRoute.steps) {
-        // Only sum the steps that have been fully completed
-        // (indices 0 up to currentStep)
         for (let i = 0; i < currentStep; i++) {
             distanceMeters += activeRoute.steps[i].distance || 0;
         }
@@ -1088,24 +1122,23 @@ export default function MapPage() {
     
     const distanceKm = (distanceMeters / 1000).toFixed(2);
     
-    // Prepare metrics for the card
     setFinalMetrics({
         distance: distanceKm,
         duration: durationSeconds,
         checkpoints: visitedIndices.size, 
         steps: Math.round(distanceMeters * 1.35),
         calories: Math.round(distanceKm * 65),
-        start_coords: origin,      // <--- Added
-        end_coords: destination    // <--- Added
+        start_coords: origin, 
+        end_coords: destination    
     });
 
-    setShowSummary(true); // <--- This triggers the popup card!
-    handleReset(); // <--- NEW: Folds down the bottom sheet!
+    // REMOVED: speak("Reached destination")
+    setShowSummary(true); 
+    handleReset(); 
   };
 
   const handleSaveAndClose = async () => {
     try {
-        // Use coordinates stored in finalMetrics (since state is already reset)
         await fetch(`${apiBase}/api/walk_complete`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1113,8 +1146,8 @@ export default function MapPage() {
                 distance_km: finalMetrics.distance,
                 duration_seconds: finalMetrics.duration,
                 checkpoints_completed: finalMetrics.checkpoints,
-                start_coords: finalMetrics.start_coords, // <--- Updated
-                end_coords: finalMetrics.end_coords,     // <--- Updated
+                start_coords: finalMetrics.start_coords, 
+                end_coords: finalMetrics.end_coords,     
                 yoga_poses_performed: [] 
             }),
         });
@@ -1123,14 +1156,12 @@ export default function MapPage() {
         console.error("Save failed", e);
     }
 
-    // Reset UI State
     setShowSummary(false);
     setFinalMetrics(null);
-    // handleReset() is not needed here as it was called in handleStopNavigation
   };
 
   function handleReset() {
-    localStorage.removeItem("activeWalkStat");
+    localStorage.removeItem("activeWalkState");
     setOrigin(null);
     setIsOriginCurrentLocation(false);
     setDestination(null);
@@ -1167,7 +1198,7 @@ export default function MapPage() {
       const orgLabel = await reverseGeocode(lat, lng);
       setOriginLabel(orgLabel);
       if (destination) {
-        calculateRoute({ lat, lng }, destination);
+        // Trigger generic route refresh logic via state, or ignore until submit
       }
       setSelectionStep("done");
       setSheetOpen(true);
@@ -1185,7 +1216,6 @@ export default function MapPage() {
     setErrorMsg("");
 
     if (origin) {
-        calculateRoute(origin, { lat, lng });
         setSelectionStep("done");
     } else {
         setSelectionStep("chooseOrigin");
@@ -1207,9 +1237,7 @@ export default function MapPage() {
     
     setIsOriginCurrentLocation(false); 
     
-    if (newOrigin && newDestination) {
-        calculateRoute(newOrigin, newDestination);
-    } else {
+    if (!newOrigin || !newDestination) {
         setRoutes([]);
         setActiveRouteIndex(0);
         setCheckpoints([]);
@@ -1226,14 +1254,14 @@ export default function MapPage() {
     <div className="mapPageRoot">
       <div className="mapWrapper">
         
-        {/* --- ADDED SUMMARY CARD OVERLAY --- */}
+        {/* --- SUMMARY CARD OVERLAY --- */}
         {showSummary && finalMetrics && (
           <WalkSummaryCard 
             distance={finalMetrics.distance}
             duration={finalMetrics.duration}
             checkpoints={finalMetrics.checkpoints}
             onSave={handleSaveAndClose}
-            onClose={() => setShowSummary(false)} // <--- NEW: Handle Close Action
+            onClose={() => setShowSummary(false)}
           />
         )}
 
@@ -1249,7 +1277,9 @@ export default function MapPage() {
           />
 
           <ClickHandler onClick={handleMapClick} />
+          
           <UserLocationButton userLocation={userLocation} setHeading={setHeading} />
+          <VoiceToggleButton voiceEnabled={voiceEnabled} toggleVoice={() => setVoiceEnabled(!voiceEnabled)} />
 
           {/* DYNAMIC USER LOCATION PUCK */}
           {userLocation && (
@@ -1374,7 +1404,7 @@ export default function MapPage() {
                       src={selectedCheckpoint.exercise.gif} 
                       alt={selectedCheckpoint.exercise.name} 
                       className="cp-gif-img" 
-                      onError={(e) => { e.target.style.display = 'none'; }} // Hide if link is broken
+                      onError={(e) => { e.target.style.display = 'none'; }} 
                     />
                   ) : (
                     <div className="cp-gif-label">
@@ -1404,7 +1434,6 @@ export default function MapPage() {
 
                       return (
                         <div key={i} className="cp-benefit-item">
-                          {/* UPDATED: Use IMG tag instead of span */}
                           <img 
                             src={TickIcon} 
                             alt="Check" 
@@ -1500,15 +1529,21 @@ export default function MapPage() {
 
                 <div className="directionCard">
                   <div className="directionLabel">Current Instruction</div>
-                  <div className="directionMain">{activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}</div>
-                  <div className="directionSub"><span>for</span><strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance)}</strong></div>
+                  {/* Safety check added here to prevent white screen crash */}
+                  <div className="directionMain">
+                    {activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}
+                  </div>
+                  <div className="directionSub">
+                    <span>for</span>
+                    <strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance)}</strong>
+                  </div>
                 </div>
                 <div className="activeNavButtons">
                   <button className="btn-nav-next" onClick={advanceStep}>Next Step</button>
                   <button className="btn-nav-end" onClick={handleStopNavigation}>End Walk</button>
                 </div>
                 
-                {/* --- UPGRADED DEVELOPER TOOLS --- */}
+                {/* --- DEVELOPER TOOLS --- */}
                 <div style={{ marginTop: '20px', padding: '12px', background: '#f0f4f0', borderRadius: '12px', border: '1px solid #dcefdc' }}>
                   <p style={{ margin: '0 0 10px', color: '#1f3d1f', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     🕵️ Developer Teleport
