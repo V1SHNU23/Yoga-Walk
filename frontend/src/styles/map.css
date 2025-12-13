@@ -646,29 +646,23 @@
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
-  
-  /* CRITICAL: Enables the "Page by Page" snap feel */
   scroll-snap-type: x mandatory; 
   scroll-behavior: smooth;
-  
-  /* Hide scrollbar */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE */
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
 }
 
 .cp-slides-viewport::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none; 
 }
 
-/* The Slide: Each page takes full width */
 .cp-slide {
-  min-width: 100%; /* Force full width */
-  scroll-snap-align: center; /* Snap to center */
-  padding: 4px; /* Tiny buffer */
+  min-width: 100%; 
+  scroll-snap-align: center; 
+  padding: 4px; 
   box-sizing: border-box;
 }
 
-/* Remove old side button styles if you wish, or just leave them unused */
 .cp-side-btn { display: none !important; }
 
 .activeWalkContainer { text-align: center; padding-bottom: 10px; animation: fadeIn 0.3s ease; }
@@ -676,7 +670,7 @@
 .active-walk-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Pushes button left, title center, spacer right */
+  justify-content: space-between; 
   margin-bottom: 16px;
 }
 

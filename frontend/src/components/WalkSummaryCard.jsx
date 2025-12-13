@@ -5,9 +5,8 @@ import "./WalkSummaryCard.css";
 import distanceIcon from "../icons/road.svg"; 
 import durationIcon from "../icons/clock.svg"; 
 import posesIcon from "../icons/pose.svg";
-import FireIcon from "../icons/fire.svg"; // Changed to correct file
+import FireIcon from "../icons/fire.svg"; 
 
-// Added calories to props
 const WalkSummaryCard = ({ distance, duration, checkpoints, calories, onSave, onClose }) => {
   return (
     <div className="summary-overlay">
