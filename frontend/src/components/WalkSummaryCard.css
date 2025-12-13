@@ -14,12 +14,13 @@
 }
 
 .summary-card {
-  width: 90%;
-  max-width: 350px;
+  width: 95%;
+  max-width: 600px; /* Increased from 350px to fit 4 items comfortably */
   text-align: center;
   padding: 30px 20px !important;
   background: rgba(255, 255, 255, 0.95) !important;
-  position: relative; /* Needed for absolute positioning of close button */
+  position: relative;
+  border-radius: 24px; /* Ensure you have rounded corners */
 }
 
 /* Close Button Style */
@@ -54,33 +55,38 @@
 
 .summary-metrics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 15px;
-  margin-bottom: 25px;
+  grid-template-columns: repeat(4, 1fr); /* This ensures they stay on 1 line */
+  gap: 12px;
+  margin: 24px 0;
 }
 
 .metric-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  padding: 10px 5px;
+  background: rgba(255, 255, 255, 0.5); /* Subtle backing for each item */
+  border-radius: 16px;
 }
 
 .metric-icon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 8px;
   opacity: 0.8;
 }
 
 .metric-value {
-  font-size: 18px;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: #173a22;
+  color: #1f3d1f;
 }
 
 .metric-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #6a7a6e;
+  margin-top: 2px;
 }
 
 .summary-btn {

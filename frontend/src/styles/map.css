@@ -425,6 +425,12 @@
   border-radius: 99px;
 }
 
+.cp-detail-desc {
+  font-family: system-ui, sans-serif;
+  color: #526b57;
+  font-size: 0.95rem;
+}
+
 .cp-benefits-list {
   display: flex;
   flex-direction: column;
@@ -471,6 +477,37 @@
 .cp-close-btn:hover {
   background: #e5e5ea;
   color: #1c1c1e;
+}
+
+.cp-question-container {
+  background: linear-gradient(135deg, #f7fbf7 0%, #e9f7dd 100%); /* Subtle Mint Gradient */
+  border: 1px solid #dcefdc;
+  border-radius: 24px;
+  padding: 30px 20px;
+  text-align: center;
+  margin: 10px 0 25px 0;
+  box-shadow: 0 8px 24px rgba(97, 179, 41, 0.08); /* Soft Green Glow */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The Emoji Icon */
+.cp-question-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+  animation: floatIcon 3s ease-in-out infinite;
+}
+
+/* The Question Text */
+.cp-question-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f3d1f; /* Dark Forest Green */
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* Typography */
@@ -567,21 +604,31 @@
 /* Action Button */
 .cp-complete-block-btn {
   width: 100%;
-  background: linear-gradient(135deg, #61b329 0%, #4ca820 100%);
+  background: #61b329; /* Yoga Green */
   color: white;
   border: none;
-  padding: 16px;
-  border-radius: 18px;
-  font-size: 15px;
+  padding: 16px 24px;
+  font-size: 1.1rem;
   font-weight: 700;
+  border-radius: 999px; /* Pill Shape */
   cursor: pointer;
-  margin-top: 12px;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.3);
-  transition: transform 0.1s;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 15px rgba(97, 179, 41, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.5px;
 }
 
 .cp-complete-block-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.98) translateY(0);
+  box-shadow: 0 2px 8px rgba(97, 179, 41, 0.3);
+}
+
+.cp-complete-block-btn:hover {
+  background: #529e22;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(97, 179, 41, 0.45);
 }
 
 @keyframes popUp {

@@ -457,7 +457,6 @@ export default function MapPage() {
     if (!voiceEnabled) {
       window.speechSynthesis.cancel();
     }
-    // REMOVED: speak("Voice guidance enabled") - User requested only directions
   }, [voiceEnabled]);
 
   const apiBase = "http://localhost:5000";
@@ -862,8 +861,6 @@ export default function MapPage() {
         }
         setVisitedIndices(prev => new Set(prev).add(idx));
         if (navigator.vibrate) navigator.vibrate(200);
-        
-        // REMOVED: speak("Checkpoint reached")
       }
     });
   }, [userLocation, isWalking, checkpointPositions, visitedIndices, checkpoints]);
@@ -1046,8 +1043,6 @@ export default function MapPage() {
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
 
-      // REMOVED: speak("Route found")
-
       const selectedRoute = routeOptions[0];
       updateCheckpointPositionsForRoute(selectedRoute, Number(checkpointCount));
 
@@ -1086,8 +1081,6 @@ export default function MapPage() {
       setVisitedIndices(new Set()); 
       setSheetOpen(true);
       walkStartTimeRef.current = Date.now();
-
-      // REMOVED: speak("Starting walk...")
 
       setIsZooming(true);
 
@@ -1132,7 +1125,6 @@ export default function MapPage() {
         end_coords: destination    
     });
 
-    // REMOVED: speak("Reached destination")
     setShowSummary(true); 
     handleReset(); 
   };
@@ -1256,13 +1248,17 @@ export default function MapPage() {
         
         {/* --- SUMMARY CARD OVERLAY --- */}
         {showSummary && finalMetrics && (
-          <WalkSummaryCard 
-            distance={finalMetrics.distance}
-            duration={finalMetrics.duration}
-            checkpoints={finalMetrics.checkpoints}
-            onSave={handleSaveAndClose}
-            onClose={() => setShowSummary(false)}
-          />
+            <WalkSummaryCard
+                distance={finalMetrics.distance}
+                duration={finalMetrics.duration}
+                checkpoints={finalMetrics.checkpoints}
+                calories={finalMetrics.calories}
+                onSave={handleSaveAndClose}
+                onClose={() => {
+                setShowSummary(false);
+                handleReset();
+                }}
+            />
         )}
 
         <MapContainer

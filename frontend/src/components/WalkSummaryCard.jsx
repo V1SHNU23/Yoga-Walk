@@ -5,9 +5,10 @@ import "./WalkSummaryCard.css";
 import distanceIcon from "../icons/road.svg"; 
 import durationIcon from "../icons/clock.svg"; 
 import posesIcon from "../icons/pose.svg";
-import FireIcon from "../icons/pose.svg";
+import FireIcon from "../icons/fire.svg"; // Changed to correct file
 
-const WalkSummaryCard = ({ distance, duration, checkpoints, onSave, onClose }) => {
+// Added calories to props
+const WalkSummaryCard = ({ distance, duration, checkpoints, calories, onSave, onClose }) => {
   return (
     <div className="summary-overlay">
       <motion.div
@@ -47,6 +48,13 @@ const WalkSummaryCard = ({ distance, duration, checkpoints, onSave, onClose }) =
               <img src={posesIcon} alt="Poses" className="metric-icon" />
               <span className="metric-value">{checkpoints}</span>
               <span className="metric-label">Poses</span>
+            </div>
+
+            {/* CALORIES (New) */}
+            <div className="metric-item">
+              <img src={FireIcon} alt="Calories" className="metric-icon" />
+              <span className="metric-value">{calories}</span>
+              <span className="metric-label">Kcal</span>
             </div>
           </div>
 
