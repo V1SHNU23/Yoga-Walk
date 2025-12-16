@@ -27,7 +27,7 @@
 .mapContainer {
   width: 100%;
   height: 100%;
-  background-color: #e5e5e5; /* Fallback color */
+  background-color: #e5e5e5; 
 }
 
 /* --- Route Lines --- */
@@ -116,24 +116,22 @@
   right: 0;
   z-index: 40;
   
-  /* DOCKING LOGIC: Sit exactly on top of the Nav Bar (80px) */
   bottom: 0px; 
   
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   
-  /* Let clicks pass through empty space above */
+
   pointer-events: none; 
 }
 
 .mapCheckpointSheet {
   background: #ffffff;
   
-  /* ROUNDED TOP CORNERS ONLY (Docked Look) */
   border-radius: 24px 24px 0 0; 
   
-  /* FULL WIDTH */
+
   width: 100%; 
   margin: 0; 
   
@@ -145,7 +143,6 @@
   display: flex;
   flex-direction: column;
   
-  /* No huge padding needed since we sit ON TOP of nav bar */
   padding-bottom: 0; 
   
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -200,7 +197,6 @@
 
 /* COLLAPSED STATE */
 .mapCheckpointSheetCollapsed {
-  /* Push down so only header shows */
   transform: translateY(calc(100% - 60px)); 
 }
 
@@ -367,7 +363,7 @@
   position: absolute;
   inset: 0;
   z-index: 2000;
-  /* Darker blur backdrop for focus */
+
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -377,12 +373,10 @@
   justify-content: center;
   padding: 20px;
   
-  /* Smooth Fade In */
   animation: fadeIn 0.2s ease-out;
 }
 
 .checkpoint-detail-card {
-  /* Frosted Glass Effect */
   background: rgba(255, 255, 255, 0.92); 
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -390,10 +384,9 @@
   
   width: 100%;
   max-width: 340px;
-  border-radius: 32px; /* Super rounded corners */
+  border-radius: 32px; 
   padding: 28px;
   
-  /* Soft, deep shadow to lift it off the map */
   box-shadow: 
     0 20px 40px rgba(0, 0, 0, 0.15),
     0 0 0 1px rgba(255, 255, 255, 0.5) inset;
@@ -402,7 +395,6 @@
   display: flex;
   flex-direction: column;
   
-  /* Pop-in animation */
   animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -460,7 +452,7 @@
 .cp-close-btn {
   width: 32px;
   height: 32px;
-  background: #f2f2f7; /* Light grey */
+  background: #f2f2f7; 
   border: none;
   border-radius: 50%;
   color: #8e8e93;
@@ -471,7 +463,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  padding-bottom: 2px; /* Optical center */
+  padding-bottom: 2px; 
 }
 
 .cp-close-btn:hover {
@@ -480,13 +472,12 @@
 }
 
 .cp-question-container {
-  background: linear-gradient(135deg, #f7fbf7 0%, #e9f7dd 100%); /* Subtle Mint Gradient */
-  border: 1px solid #dcefdc;
+  background: linear-gradient(135deg, #f7fbf7 0%, #e9f7dd 100%); 
   border-radius: 24px;
   padding: 30px 20px;
   text-align: center;
   margin: 10px 0 25px 0;
-  box-shadow: 0 8px 24px rgba(97, 179, 41, 0.08); /* Soft Green Glow */
+  box-shadow: 0 8px 24px rgba(97, 179, 41, 0.08); 
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -505,7 +496,7 @@
 .cp-question-text {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1f3d1f; /* Dark Forest Green */
+  color: #1f3d1f; 
   line-height: 1.4;
   margin: 0;
 }
@@ -597,20 +588,20 @@
 
 .cp-dot.active {
   background: #61b329;
-  width: 24px; /* elongated dot */
+  width: 24px; 
   border-radius: 99px;
 }
 
 /* Action Button */
 .cp-complete-block-btn {
   width: 100%;
-  background: #61b329; /* Yoga Green */
+  background: #61b329; 
   color: white;
   border: none;
   padding: 16px 24px;
   font-size: 1.1rem;
   font-weight: 700;
-  border-radius: 999px; /* Pill Shape */
+  border-radius: 999px; 
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
   box-shadow: 0 4px 15px rgba(97, 179, 41, 0.35);
@@ -678,7 +669,6 @@
   font-size: 24px; 
   color: #0a6f00; 
   font-weight: 700; 
-  /* Remove margin here since the row handles it now */
   margin: 0; 
 }
 
@@ -690,13 +680,13 @@
   background: #f4f8f1;
   border: 1px solid #e9f7dd;
   color: #61b329;
-  font-size: 28px; /* Large chevron */
+  font-size: 28px;
   font-weight: 300;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding-bottom: 10px; /* Visual tweak to center the character */
+  padding-bottom: 10px; 
   transition: all 0.2s ease;
 }
 
@@ -724,19 +714,18 @@
 .user-location-puck {
   background: transparent;
   position: relative;
-  transition: all 0.1s linear; /* Smooth movement */
+  transition: all 0.1s linear; 
 }
 
 /* NEW: Voice Toggle Button */
 .voice-toggle-btn {
   position: absolute;
   right: 20px;
-  /* Position it exactly below the user-location-btn (assuming it is at bottom: 80px or similar) */
   bottom: 140px; 
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85); /* Glass white */
+  background: rgba(255, 255, 255, 0.85); 
   backdrop-filter: blur(5px);
   border: none;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -753,8 +742,8 @@
 }
 
 .voice-toggle-btn.active {
-  background: #e9f7dd; /* Mint green active state */
-  border: 2px solid #61b329; /* Yoga Green */
+  background: #e9f7dd; 
+  border: 2px solid #61b329; 
 }
 
 .voice-toggle-btn img,
@@ -767,7 +756,7 @@
 .user-puck-dot {
   width: 20px;
   height: 20px;
-  background-color: #007aff; /* System Blue */
+  background-color: #007aff; 
   border: 3px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -784,17 +773,61 @@
   height: 0;
   border-left: 15px solid transparent;
   border-right: 15px solid transparent;
-  border-top: 40px solid rgba(0, 122, 255, 0.3); /* Semi-transparent blue */
-  border-radius: 50% 50% 0 0; /* Soften the cone */
+  border-top: 40px solid rgba(0, 122, 255, 0.3); 
+  border-radius: 50% 50% 0 0; 
   
   position: absolute;
-  top: -24px; /* Move cone 'forward' from the dot */
+  top: -24px; 
   left: 50%;
-  
-  /* Rotation Pivot: The center of the dot, not the center of the cone */
   transform-origin: bottom center; 
-  transform: translateX(-50%); /* Center horizontally */
+  transform: translateX(-50%); 
   
   z-index: 1;
   pointer-events: none;
+}
+
+/* --- CUSTOM LEAFLET ZOOM CONTROLS --- */
+
+/* 1. Position - Align with your other buttons */
+.leaflet-top.leaflet-left {
+  top: 10px;       
+  left: 6px;       
+}
+
+/* 2. Container - Remove default border, add shadow & rounding */
+.leaflet-bar {
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 12px !important;
+  overflow: hidden; 
+}
+
+/* 3. The Buttons (Plus & Minus) */
+.leaflet-bar a {
+  background-color: rgba(255, 255, 255, 0.95) !important; 
+  color: #61b329 !important;                              
+  width: 40px !important;                                 
+  height: 40px !important;
+  line-height: 44px !important;                          
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  border-bottom: 1px solid #e9f7dd !important;            
+  transition: all 0.2s ease;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+/* 5. Fix border radius for top and bottom buttons specifically */
+.leaflet-bar a:first-child {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+}
+
+.leaflet-bar a:last-child {
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  border-bottom: none !important; 
 }

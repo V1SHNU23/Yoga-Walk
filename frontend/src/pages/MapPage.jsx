@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom"; 
 import {
   MapContainer,
   TileLayer,
@@ -14,51 +15,10 @@ import { Reorder, useDragControls } from "motion/react";
 import UserLocationIcon from "../icons/User-Location.svg"; 
 import UserLocationFillIcon from "../icons/User-Location-Fill.svg"; 
 import TickIcon from "../icons/tick.svg"; 
-// NOTE: Ensure these exist in your icons folder
 import VolumeIcon from "../icons/volume.svg";
 import MuteIcon from "../icons/mute.svg";
 
 import WalkSummaryCard from "../components/WalkSummaryCard";
-
-// --- STATIC DATA FOR CARD CONTENT ---
-const POSE_DETAILS = {
-  default: {
-    gif: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDdtY3h6bnh6aG56aG56aG56aG56aG56aG56aG56aG56/3o7qE1YN7aQf3lrGWg/giphy.gif",
-    benefits: [
-      "Improves flexibility and balance.",
-      "Calms the mind and reduces stress.",
-      "Strengthens core muscles."
-    ],
-    question: "How did your body feel during this pose?"
-  },
-  "Tree pose": {
-    gif: "https://media.giphy.com/media/3oKIPavRPgJYA2QWku/giphy.gif", 
-    benefits: [
-      "Strengthens thighs, calves, ankles, and spine.",
-      "Stretches the groins and inner thighs.",
-      "Improves sense of balance."
-    ],
-    question: "Were you able to find a focal point to keep your balance?"
-  },
-  "Mountain pose": {
-    gif: null, 
-    benefits: [
-      "Improves posture.",
-      "Strengthens thighs, knees, and ankles.",
-      "Firms abdomen and buttocks."
-    ],
-    question: "Did you feel grounded through your feet?"
-  },
-  "Warrior two": {
-    gif: "https://media.giphy.com/media/l41lYCDgxP6OFBruE/giphy.gif",
-    benefits: [
-        "Strengthens and stretches legs and ankles.",
-        "Stretches groins, chest, lungs, and shoulders.",
-        "Increases stamina."
-    ],
-    question: "Did you feel strong and stable in this stance?"
-  }
-};
 
 // --- CONFIG ---
 const defaultCenter = {
@@ -376,6 +336,8 @@ function createDurationIcon(durationSeconds, isActive) {
 // --- MAIN COMPONENT ---
 
 export default function MapPage() {
+  const location = useLocation(); 
+  
   const [map, setMap] = useState(null);
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -385,6 +347,11 @@ export default function MapPage() {
   const [routes, setRoutes] = useState([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
 
+  // --- ROUTINE & THEME STATE ---
+  const [activeRoutine, setActiveRoutine] = useState(null);
+  const [themes, setThemes] = useState([]);
+  const [selectedThemeId, setSelectedThemeId] = useState("");
+
   // Active Walk State
   const [isWalking, setIsWalking] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -392,6 +359,12 @@ export default function MapPage() {
   // Overlay State (Checkpoint Details)
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
+
+  // --- NEW: REFLECTION STATE ---
+  // Stores all answers: { 1: "felt good", 2: "hard" }
+  const [reflections, setReflections] = useState({}); 
+  // Stores current typing for the active slide
+  const [tempReflection, setTempReflection] = useState(""); 
   
   // --- SWIPEABLE CARD STATE ---
   const [activeSlide, setActiveSlide] = useState(0); 
@@ -451,6 +424,36 @@ export default function MapPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const voiceEnabledRef = useRef(voiceEnabled);
 
+  const apiBase = "http://localhost:5000";
+  const lastStepChangeRef = useRef(Date.now());
+  const searchTimeoutRef = useRef(null);
+
+  const walkStartTimeRef = useRef(null);
+
+  // --- 1. FETCH REFLECTION THEMES ON MOUNT ---
+  useEffect(() => {
+    fetch(`${apiBase}/api/themes`)
+        .then(res => res.json())
+        .then(data => {
+            setThemes(data);
+            if (data && data.length > 0) {
+                setSelectedThemeId(data[0].id);
+            }
+        })
+        .catch(err => console.error("Failed to fetch themes", err));
+  }, []);
+
+  // --- 2. INITIALIZE FROM ROUTINE (if passed) ---
+  useEffect(() => {
+    if (location.state && location.state.routine) {
+        const routine = location.state.routine;
+        setActiveRoutine(routine);
+        setCheckpointCount(routine.poses.length);
+        setRoutes([]);
+        setCheckpoints([]);
+    }
+  }, [location.state]);
+
   // Keep ref in sync
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
@@ -459,13 +462,6 @@ export default function MapPage() {
     }
   }, [voiceEnabled]);
 
-  const apiBase = "http://localhost:5000";
-  const lastStepChangeRef = useRef(Date.now());
-  const searchTimeoutRef = useRef(null);
-
-  const walkStartTimeRef = useRef(null);
-
-  // --- VOICE HELPER ---
   const speak = (text) => {
     if (
         !voiceEnabledRef.current || 
@@ -489,14 +485,18 @@ export default function MapPage() {
     }
   }, [map, userLocation, hasCenteredOnLoad]);
 
+  // --- UPDATED: HANDLE CHECKPOINT OPEN ---
   useEffect(() => {
     if (selectedCheckpoint) {
       setActiveSlide(0);
+      // RESET TEMP REFLECTION TO EXISTING SAVED TEXT (IF ANY)
+      setTempReflection(reflections[selectedCheckpoint.index] || "");
+
       if (slidesRef.current) {
         slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
       }
     }
-  }, [selectedCheckpoint]);
+  }, [selectedCheckpoint]); // note: we don't depend on 'reflections' to avoid loops
 
   useEffect(() => {
     if (destinationLabel && !showDropdown) {
@@ -510,7 +510,7 @@ export default function MapPage() {
     }
   }, [originLabel, showOriginDropdown]);
 
-  // --- 1. RESTORE STATE ON LOAD ---
+  // --- RESTORE/SAVE STATE LOGIC ---
   useEffect(() => {
     const savedState = localStorage.getItem("activeWalkState");
     if (savedState) {
@@ -531,13 +531,14 @@ export default function MapPage() {
             if (parsed.originLabel) setOriginLabel(parsed.originLabel);
             if (parsed.destinationLabel) setDestinationLabel(parsed.destinationLabel);
             if (parsed.voiceEnabled !== undefined) setVoiceEnabled(parsed.voiceEnabled);
+            // NEW: Restore reflections
+            if (parsed.reflections) setReflections(parsed.reflections);
         } catch (e) {
             console.error("Failed to restore walk state", e);
         }
     }
   }, []);
 
-  // --- 2. SAVE STATE ON CHANGE ---
   useEffect(() => {
     if (!isMounted.current) {
         isMounted.current = true;
@@ -553,19 +554,20 @@ export default function MapPage() {
             isWalking,
             currentStep,
             activeRouteIndex,
-            visitedIndices: Array.from(visitedIndices), // Convert Set to Array
+            visitedIndices: Array.from(visitedIndices), 
             startTime: walkStartTimeRef.current,
             selectionStep,
             sheetOpen,
             originLabel,
             destinationLabel,
-            voiceEnabled
+            voiceEnabled,
+            reflections // NEW: Save reflections
         };
         localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
     } else {
         localStorage.removeItem("activeWalkState");
     }
-  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel, voiceEnabled]);
+  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel, voiceEnabled, reflections]);
 
   // --- SLIDE SCROLL HANDLER ---
   const handleSlideScroll = () => {
@@ -771,7 +773,6 @@ export default function MapPage() {
     };
   }, []);
 
-  // --- DYNAMIC LOCATION PUCK ICON ---
   const createLocationIcon = (headingValue) => {
     return L.divIcon({
       className: "user-location-puck",
@@ -840,7 +841,6 @@ export default function MapPage() {
   useEffect(() => {
     if (isWalking && routes[activeRouteIndex]) {
         const currentInstruction = routes[activeRouteIndex].steps?.[currentStep]?.instruction;
-        // ONLY speak actual navigation instructions
         if (currentInstruction) {
             speak(currentInstruction);
         }
@@ -1021,6 +1021,7 @@ export default function MapPage() {
     return routesList;
   }
 
+  // --- HANDLER: GENERATE JOURNEY ---
   async function handleSubmit(e) {
     e.preventDefault();
     
@@ -1044,14 +1045,17 @@ export default function MapPage() {
       setActiveRouteIndex(0);
 
       const selectedRoute = routeOptions[0];
-      updateCheckpointPositionsForRoute(selectedRoute, Number(checkpointCount));
+      
+      const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
+      updateCheckpointPositionsForRoute(selectedRoute, countToUse);
 
       const payload = {
         origin,
         destination,
-        checkpoint_count: Number(checkpointCount),
+        checkpoint_count: countToUse,
       };
 
+      // 1. Fetch Route & Poses
       const res = await fetch(`${apiBase}/api/journey`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1060,10 +1064,48 @@ export default function MapPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setCheckpoints(data.checkpoints || []);
+        let finalCheckpoints = data.checkpoints || [];
+
+        // 2. OVERRIDE POSES (Routine)
+        if (activeRoutine && activeRoutine.poses.length > 0) {
+            finalCheckpoints = finalCheckpoints.map((cp, index) => {
+                const poseIndex = index % activeRoutine.poses.length;
+                const routinePose = activeRoutine.poses[poseIndex];
+                return {
+                    ...cp,
+                    exercise: {
+                        name: routinePose.name,
+                        duration: routinePose.duration || "30 sec",
+                        benefits: routinePose.benefits,
+                        instructions: routinePose.instructions,
+                        gif: routinePose.image 
+                    }
+                };
+            });
+        }
+
+        // 3. MERGE REFLECTION QUESTIONS (Theme)
+        if (selectedThemeId) {
+            try {
+                const qRes = await fetch(`${apiBase}/api/theme/${selectedThemeId}/questions`);
+                const questions = await qRes.json();
+                
+                if (questions && questions.length > 0) {
+                     finalCheckpoints = finalCheckpoints.map((cp, i) => ({
+                         ...cp,
+                         reflection_question: questions[i % questions.length] 
+                     }));
+                }
+            } catch (qErr) {
+                console.warn("Failed to fetch reflection questions", qErr);
+            }
+        }
+        
+        setCheckpoints(finalCheckpoints);
       }
       
       setVisitedIndices(new Set()); 
+      setReflections({}); // Clear old reflections for new journey
       setSheetOpen(true);
 
     } catch (err) {
@@ -1079,6 +1121,7 @@ export default function MapPage() {
       setIsWalking(true);
       setCurrentStep(0);
       setVisitedIndices(new Set()); 
+      setReflections({});
       setSheetOpen(true);
       walkStartTimeRef.current = Date.now();
 
@@ -1125,12 +1168,20 @@ export default function MapPage() {
         end_coords: destination    
     });
 
-    setShowSummary(true); 
-    handleReset(); 
+    setShowSummary(true);  
+    setSheetOpen(false);
   };
 
   const handleSaveAndClose = async () => {
     try {
+        const reflectionsData = Object.entries(reflections).map(([key, answer]) => {
+             const idx = Number(key); // Checkpoint Index (1-based)
+             const cpIndex = idx - 1; // Array Index (0-based)
+             const question = checkpoints[cpIndex]?.reflection_question || "Reflection";
+             return { question, answer };
+        });
+
+        // 2. Send to Backend
         await fetch(`${apiBase}/api/walk_complete`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1139,17 +1190,20 @@ export default function MapPage() {
                 duration_seconds: finalMetrics.duration,
                 checkpoints_completed: finalMetrics.checkpoints,
                 start_coords: finalMetrics.start_coords, 
-                end_coords: finalMetrics.end_coords,     
-                yoga_poses_performed: [] 
+                end_coords: finalMetrics.end_coords,
+                
+                // --- NEW FIELD ---
+                reflections_data: reflectionsData 
             }),
         });
-        console.log("Walk saved successfully!");
+        console.log("Walk & Reflections saved successfully!");
     } catch (e) {
         console.error("Save failed", e);
     }
 
     setShowSummary(false);
     setFinalMetrics(null);
+    handleReset();
   };
 
   function handleReset() {
@@ -1167,16 +1221,30 @@ export default function MapPage() {
     setSelectionStep("destination");
     setIsWalking(false);
     setVisitedIndices(new Set()); 
+    setReflections({}); // Clear reflections
     setSheetOpen(false);
     setSearchQuery("");
     setSearchResults([]);
     setOriginQuery("");
     setOriginResults([]);
+    setActiveRoutine(null);
 
     if (map && userLocation) {
         map.flyTo(userLocation, 15, { animate: true });
     }
   }
+
+  // --- NEW: COMPLETE CHECKPOINT HANDLER ---
+  const handleCompleteCheckpoint = () => {
+    if (selectedCheckpoint) {
+        // SAVE USER INPUT TO STATE (Keyed by Checkpoint Index)
+        setReflections(prev => ({
+            ...prev,
+            [selectedCheckpoint.index]: tempReflection
+        }));
+    }
+    setSelectedCheckpoint(null);
+  };
 
   // --- EVENT HANDLERS ---
   async function handleMapClick(latlng) {
@@ -1189,9 +1257,6 @@ export default function MapPage() {
       setIsOriginCurrentLocation(false); 
       const orgLabel = await reverseGeocode(lat, lng);
       setOriginLabel(orgLabel);
-      if (destination) {
-        // Trigger generic route refresh logic via state, or ignore until submit
-      }
       setSelectionStep("done");
       setSheetOpen(true);
       return;
@@ -1393,7 +1458,6 @@ export default function MapPage() {
                   <span className="cp-meta-item">🧘 Beginner Friendly</span>
                 </div>
                 
-                {/* DYNAMIC GIF FROM DB */}
                 <div className="cp-gif-placeholder">
                   {selectedCheckpoint.exercise?.gif ? (
                     <img 
@@ -1410,7 +1474,6 @@ export default function MapPage() {
                   )}
                 </div>
 
-                {/* DYNAMIC INSTRUCTIONS FROM DB */}
                 <p className="cp-detail-desc">
                   {selectedCheckpoint.exercise?.instructions 
                     ? selectedCheckpoint.exercise.instructions 
@@ -1448,20 +1511,42 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* SLIDE 3: REFLECTION */}
+              {/* SLIDE 3: REFLECTION (UPDATED) */}
               <div className="cp-slide">
                 <div className="cp-question-container">
                   <span className="cp-question-icon">🤔</span>
                   <p className="cp-question-text">
-                     How did your body feel while holding this pose?
+                     {selectedCheckpoint.reflection_question || "How did your body feel while holding this pose?"}
                   </p>
                 </div>
-                <p className="cp-detail-desc" style={{textAlign: 'center', marginTop: '12px'}}>
-                  Take a moment to reflect before continuing your walk.
-                </p>
+                
+                {/* --- NEW TEXT AREA --- */}
+                <textarea 
+                    className="cp-reflection-input"
+                    placeholder="Type your thoughts here..."
+                    value={tempReflection}
+                    onChange={(e) => setTempReflection(e.target.value)}
+                    style={{
+                        width: '100%',
+                        height: '100px',
+                        marginTop: '15px',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        border: '1px solid #dcefdc',
+                        background: '#f8fdf8',
+                        fontFamily: 'inherit',
+                        fontSize: '14px',
+                        lineHeight: '1.4',
+                        color: '#1f3d1f',
+                        resize: 'none',
+                        outline: 'none',
+                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+                    }}
+                />
+
                 <button 
                   className="cp-complete-block-btn"
-                  onClick={() => setSelectedCheckpoint(null)}
+                  onClick={handleCompleteCheckpoint}
                 >
                   Complete Checkpoint
                 </button>
@@ -1525,7 +1610,6 @@ export default function MapPage() {
 
                 <div className="directionCard">
                   <div className="directionLabel">Current Instruction</div>
-                  {/* Safety check added here to prevent white screen crash */}
                   <div className="directionMain">
                     {activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}
                   </div>
@@ -1657,33 +1741,73 @@ export default function MapPage() {
                     </Reorder.Group>
                 </div>
 
-                {/* --- 2. CHECKPOINTS (Moved Up) --- */}
+                {/* --- 2. CHECKPOINTS & THEME SELECTOR --- */}
                 <div className="checkpoint-control-abstract">
                     <div className="checkpoint-header">
-                        <span className="checkpoint-label">🧘 Yoga Checkpoints</span>
+                        <span className="checkpoint-label">
+                           {activeRoutine ? `🧘 ${activeRoutine.title}` : "🧘 Yoga Checkpoints"}
+                        </span>
                         <span className="checkpoint-count-display">{checkpointCount}</span>
                     </div>
-                    <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        step="1"
-                        className="styled-slider"
-                        value={checkpointCount}
-                        onChange={(e) => {
-                            const value = Number(e.target.value);
-                            setCheckpointCount(value);
-                            if (routes[activeRouteIndex]) {
-                                updateCheckpointPositionsForRoute(routes[activeRouteIndex], value);
-                            } else {
-                                setCheckpointPositions([]);
-                            }
+                    
+                    {!activeRoutine ? (
+                        <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            step="1"
+                            className="styled-slider"
+                            value={checkpointCount}
+                            onChange={(e) => {
+                                const value = Number(e.target.value);
+                                setCheckpointCount(value);
+                                if (routes[activeRouteIndex]) {
+                                    updateCheckpointPositionsForRoute(routes[activeRouteIndex], value);
+                                } else {
+                                    setCheckpointPositions([]);
+                                }
+                            }}
+                        />
+                    ) : (
+                        <p style={{ fontSize: '12px', color: '#6a7a6e', marginTop: '4px', fontStyle: 'italic' }}>
+                           Checkpoints locked to routine.
+                        </p>
+                    )}
+
+                    {!activeRoutine && (
+                        <div style={{display:'flex', justifyContent:'space-between', marginTop:'8px', fontSize:'11px', color:'#888'}}>
+                            <span>1</span>
+                            <span>10</span>
+                        </div>
+                    )}
+
+                    {/* --- NEW: REFLECTION THEME SELECTOR --- */}
+                    <div className="theme-selector" style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '12px' }}>
+                      <label style={{ fontSize: '12px', color: '#6a7a6e', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
+                        🧠 Reflection Theme
+                      </label>
+                      <select 
+                        value={selectedThemeId || ""} 
+                        onChange={(e) => setSelectedThemeId(e.target.value)}
+                        style={{ 
+                            width: '100%', 
+                            padding: '10px', 
+                            borderRadius: '8px', 
+                            border: '1px solid #dcefdc', 
+                            background: 'rgba(255,255,255,0.8)',
+                            fontSize: '13px',
+                            color: '#1f3d1f',
+                            outline: 'none',
+                            cursor: 'pointer'
                         }}
-                    />
-                    <div style={{display:'flex', justifyContent:'space-between', marginTop:'8px', fontSize:'11px', color:'#888'}}>
-                        <span>1</span>
-                        <span>10</span>
+                      >
+                        <option value="">-- Random Mix --</option>
+                        {themes.map(t => (
+                            <option key={t.id} value={t.id}>{t.title}</option>
+                        ))}
+                      </select>
                     </div>
+
                 </div>    
 
                 {/* --- 3. ROUTES (Moved Down) --- */}
