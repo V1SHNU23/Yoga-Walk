@@ -73,6 +73,18 @@ function offsetPoint(lat, lng, offsetNorthMeters, offsetEastMeters) {
   return { lat: lat + dLat, lng: lng + dLng };
 }
 
+// Predefined offsets to fan out route duration labels so they don't stack
+const LABEL_OFFSETS_METERS = [
+  { north: 0, east: 0 },
+  { north: 140, east: 140 },
+  { north: -140, east: -140 },
+  { north: 160, east: -120 },
+  { north: -160, east: 120 },
+  { north: 0, east: 200 },
+  { north: 220, east: 0 },
+  { north: -220, east: 0 },
+];
+
 function distanceMeters(a, b) {
   const R = 6371000;
   const lat1 = (a.lat * Math.PI) / 180;
@@ -1379,11 +1391,13 @@ export default function MapPage() {
             const midPoint = route.coords[midPointIndex];
             if (!midPoint) return null;
             const isActive = idx === activeRouteIndex;
+            const offset = LABEL_OFFSETS_METERS[idx % LABEL_OFFSETS_METERS.length];
+            const labelPosition = offsetPoint(midPoint.lat, midPoint.lng, offset.north, offset.east);
 
             return (
               <Marker
                 key={`time-pill-${route.id}`}
-                position={midPoint}
+                position={labelPosition}
                 icon={createDurationIcon(route.duration, isActive)}
                 zIndexOffset={isActive ? 1000 : 500}
                 eventHandlers={{

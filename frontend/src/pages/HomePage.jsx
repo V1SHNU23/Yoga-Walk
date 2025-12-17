@@ -1,5 +1,5 @@
 import homepageBg from "../backgrounds/homepage.png";
-
+ 
 export default function HomePage() {
   return (
     <div className="homeContainer">
