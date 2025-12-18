@@ -91,7 +91,6 @@ function distanceMeters(a, b) {
   const lat2 = (b.lat * Math.PI) / 180;
   const dLat = lat2 - lat1;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-
   const sinDLat = Math.sin(dLat / 2);
   const sinDLng = Math.sin(dLng / 2);
 
@@ -146,6 +145,63 @@ function computeCheckpointPositions(coords, count) {
   return checkpoints;
 }
 
+// --- ROUTE SELECTION HELPERS ---
+
+function getRouteMidpoint(route) {
+  if (!route || !route.coords || route.coords.length === 0) return null;
+  const midIndex = Math.floor(route.coords.length / 2);
+  return route.coords[midIndex];
+}
+
+// Keep at most "maxRoutes" routes that are distinct in both distance and path
+function selectDistinctTopRoutes(routes, maxRoutes = 3) {
+  if (!routes || routes.length === 0) return [];
+
+  // Sort by duration (shortest first)
+  const sorted = [...routes].sort((a, b) => (a.duration || 0) - (b.duration || 0));
+
+  const picked = [];
+  const DISTANCE_DIFF_FRACTION = 0.1; // 10% difference
+  const MIDPOINT_PROX_THRESHOLD = 80; // meters
+
+  for (const route of sorted) {
+    if (picked.length >= maxRoutes) break;
+
+    const midA = getRouteMidpoint(route);
+    const distA = route.distance || 0;
+
+    let isSimilar = false;
+    for (const chosen of picked) {
+      const midB = getRouteMidpoint(chosen);
+      const distB = chosen.distance || 0;
+
+      const fracDiff =
+        Math.abs(distA - distB) / Math.max(distA, distB, 1);
+
+      let midpointProximity = Infinity;
+      if (midA && midB) {
+        midpointProximity = distanceMeters(midA, midB);
+      }
+
+      if (fracDiff < DISTANCE_DIFF_FRACTION && midpointProximity < MIDPOINT_PROX_THRESHOLD) {
+        isSimilar = true;
+        break;
+      }
+    }
+
+    if (!isSimilar) {
+      picked.push(route);
+    }
+  }
+
+  // Fallback: if we filtered too aggressively, ensure at least one
+  if (picked.length === 0) {
+    picked.push(sorted[0]);
+  }
+
+  return picked;
+}
+
 // --- HELPER COMPONENTS ---
 
 function GripIcon({ dragControls }) {
@@ -185,7 +241,7 @@ function ClickHandler({ onClick }) {
   return null;
 }
 
-function UserLocationButton({ userLocation, setHeading }) {
+function UserLocationButton({ userLocation, setHeading, isWalking }) {
   const map = useMap();
   const [isLocating, setIsLocating] = useState(false);
   const btnRef = useRef(null);
@@ -230,7 +286,7 @@ function UserLocationButton({ userLocation, setHeading }) {
       onClick={handleLocate}
       style={{
         position: "absolute",
-        top: "20px", 
+        top: isWalking ? "120px" : "20px", 
         right: "16px", 
         zIndex: 1000,
         width: "48px",
@@ -263,7 +319,7 @@ function UserLocationButton({ userLocation, setHeading }) {
   );
 }
 
-function VoiceToggleButton({ voiceEnabled, toggleVoice }) {
+function VoiceToggleButton({ voiceEnabled, toggleVoice, isWalking }) {
   const btnRef = useRef(null);
 
   useEffect(() => {
@@ -280,7 +336,7 @@ function VoiceToggleButton({ voiceEnabled, toggleVoice }) {
       aria-label="Toggle Voice Guidance"
       style={{
         position: "absolute",
-        top: "80px", 
+        top: isWalking ? "176px" : "80px", 
         right: "16px",
         zIndex: 1000,
         width: "48px",
@@ -1030,7 +1086,8 @@ export default function MapPage() {
     }
 
     if (!routesList.length) throw new Error("No route found");
-    return routesList;
+
+    return selectDistinctTopRoutes(routesList, 3);
   }
 
   // --- HANDLER: GENERATE JOURNEY ---
@@ -1134,7 +1191,7 @@ export default function MapPage() {
       setCurrentStep(0);
       setVisitedIndices(new Set()); 
       setReflections({});
-      setSheetOpen(true);
+	  setSheetOpen(false);
       walkStartTimeRef.current = Date.now();
 
       setIsZooming(true);
@@ -1342,7 +1399,8 @@ export default function MapPage() {
           ref={setMap}
           center={userLocation || defaultCenter}
           zoom={13}
-          className="mapContainer"
+          zoomControl={!isWalking}
+          className={isWalking ? "mapContainer mapContainer-walking" : "mapContainer"}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1351,8 +1409,16 @@ export default function MapPage() {
 
           <ClickHandler onClick={handleMapClick} />
           
-          <UserLocationButton userLocation={userLocation} setHeading={setHeading} />
-          <VoiceToggleButton voiceEnabled={voiceEnabled} toggleVoice={() => setVoiceEnabled(!voiceEnabled)} />
+          <UserLocationButton 
+            userLocation={userLocation} 
+            setHeading={setHeading} 
+            isWalking={isWalking}
+          />
+          <VoiceToggleButton 
+            voiceEnabled={voiceEnabled} 
+            toggleVoice={() => setVoiceEnabled(!voiceEnabled)} 
+            isWalking={isWalking}
+          />
 
           {/* DYNAMIC USER LOCATION PUCK */}
           {userLocation && (
@@ -1401,7 +1467,11 @@ export default function MapPage() {
                 icon={createDurationIcon(route.duration, isActive)}
                 zIndexOffset={isActive ? 1000 : 500}
                 eventHandlers={{
-                  click: () => setActiveRouteIndex(idx),
+                  click: () => {
+                    setActiveRouteIndex(idx);
+                    const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
+                    updateCheckpointPositionsForRoute(route, countToUse);
+                  },
                 }}
               />
             );
@@ -1422,7 +1492,11 @@ export default function MapPage() {
                   opacity: 0.6 
                 }}
                 eventHandlers={{
-                  click: () => setActiveRouteIndex(idx),
+                  click: () => {
+                    setActiveRouteIndex(idx);
+                    const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
+                    updateCheckpointPositionsForRoute(route, countToUse);
+                  },
                 }}
               />
             );
@@ -1443,6 +1517,40 @@ export default function MapPage() {
           )}
         </MapContainer>
       </div>
+
+      {/* --- TOP NAVIGATION POPUP WHEN WALKING --- */}
+      {isWalking && activeRoute && (
+        <div className="activeNavOverlay">
+          <div className="activeNavHeaderRow">
+            <button 
+              className="activeNavBackBtn"
+              onClick={() => {
+                setIsWalking(false);
+                setSheetOpen(true);
+              }}
+            >
+              ‹
+            </button>
+            <button 
+              className="activeNavEndBtn"
+              onClick={handleStopNavigation}
+            >
+              End
+            </button>
+          </div>
+
+          <div className="activeNavBody">
+            <div className="activeNavMain">
+              {activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}
+            </div>
+            <div className="activeNavSub">
+              <span>for</span>
+              <strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance)}</strong>
+            </div>
+          </div>
+
+        </div>
+      )}
 
       {/* --- SWIPEABLE CHECKPOINT DETAIL OVERLAY --- */}
       {selectedCheckpoint && (
@@ -1582,116 +1690,58 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* --- BOTTOM SHEET --- */}
-      <section className="mapCheckpointSection">
-        <div
-          className={
-            "mapCheckpointSheet " +
-            (sheetOpen
-              ? "mapCheckpointSheetOpen"
-              : "mapCheckpointSheetCollapsed")
-          }
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div
-            className="mapCheckpointSummaryBar"
-            onClick={(e) => {
-               if(e.target.tagName !== 'INPUT' && !e.target.closest('.timeline-dropdown')) {
-                   setSheetOpen(!sheetOpen); 
-               }
-            }}
-          >
-            <span className="mapCheckpointSummaryText">{sheetSummaryText}</span>
-          </div>
-
-          <div className="mapCheckpointBody">
-            {isWalking && activeRoute ? (
-              /* 1. ACTIVE WALK MODE */
-              <div className="activeWalkContainer">
-                {/* --- HEADER ROW WITH BACK BUTTON --- */}
-                <div className="active-walk-header-row">
-                  <button 
-                    className="active-walk-back-btn" 
-                    onClick={() => {
-                      setIsWalking(false);
-                    }}
-                  >
-                    ‹
-                  </button>
-                  <div className="activeWalkHeader">Let's Go!</div>
-                  <div style={{ width: '40px' }}></div>
-                </div>
-
-                <div className="directionCard">
-                  <div className="directionLabel">Current Instruction</div>
-                  <div className="directionMain">
-                    {activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}
-                  </div>
-                  <div className="directionSub">
-                    <span>for</span>
-                    <strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance)}</strong>
-                  </div>
-                </div>
-                <div className="activeNavButtons">
-                  <button className="btn-nav-next" onClick={advanceStep}>Next Step</button>
-                  <button className="btn-nav-end" onClick={handleStopNavigation}>End Walk</button>
-                </div>
-                
-                {/* --- DEVELOPER TOOLS --- */}
-                <div style={{ marginTop: '20px', padding: '12px', background: '#f0f4f0', borderRadius: '12px', border: '1px solid #dcefdc' }}>
-                  <p style={{ margin: '0 0 10px', color: '#1f3d1f', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    🕵️ Developer Teleport
-                  </p>
-                  
-                  {/* 1. Next Turn */}
-                  <button
-                    type="button"
-                    style={{ background: '#6a7a6e', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', width: '100%', cursor: 'pointer', marginBottom: '8px' }}
-                    onClick={() => {
-                      const targetStep = activeRoute.steps?.[currentStep + 1];
-                      if (targetStep && targetStep.maneuver) {
-                        const [lng, lat] = targetStep.maneuver.location;
-                        setUserLocation({ lat, lng });
-                      } else {
-                        alert("No more steps in route!");
-                      }
-                    }}
-                  >
-                    📍 Jump to Next Turn
-                  </button>
-
-                  {/* 2. Dynamic Checkpoint Buttons */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' }}>
-                    {checkpointPositions.map((pos, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        style={{ background: '#61b329', color: 'white', border: 'none', padding: '8px 0', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                        onClick={() => setUserLocation(pos)}
-                      >
-                        CP {i + 1}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* 3. Destination (Finish) */}
-                  <button
-                    type="button"
-                    style={{ background: '#c0392b', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', width: '100%', cursor: 'pointer', fontWeight: 'bold' }}
-                    onClick={() => {
-                      if (destination) {
-                        setUserLocation(destination);
-                      }
-                    }}
-                  >
-                    🏁 Jump to Finish (Test End)
-                  </button>
-                </div>
-                {/* -------------------------------- */}
-
+      {/* --- FOOTER: WALK METRICS OR PLANNING SHEET --- */}
+      {isWalking && activeRoute && (
+        <section className="walkMetricsSection">
+          <div className="walkMetricsBar">
+            <div className="walkMetric">
+              <div className="walkMetricLabel">ETA</div>
+              <div className="walkMetricValue">
+                ~{Math.max(1, Math.round((activeRoute.duration || 0) / 60))} min
               </div>
-            ) : (
-              /* 2. PLANNING UI */
+            </div>
+            <div className="walkMetric">
+              <div className="walkMetricLabel">Time left</div>
+              <div className="walkMetricValue">
+                {Math.max(1, Math.round((activeRoute.duration || 0) / 60))} min
+              </div>
+            </div>
+            <div className="walkMetric">
+              <div className="walkMetricLabel">Distance</div>
+              <div className="walkMetricValue">
+                {formatDistance(activeRoute.distance || 0)}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section 
+        className="mapCheckpointSection"
+        style={{ display: isWalking ? "none" : undefined }}
+      >
+          <div
+            className={
+              "mapCheckpointSheet " +
+              (sheetOpen
+                ? "mapCheckpointSheetOpen"
+                : "mapCheckpointSheetCollapsed")
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="mapCheckpointSummaryBar"
+              onClick={(e) => {
+                 if(e.target.tagName !== 'INPUT' && !e.target.closest('.timeline-dropdown')) {
+                     setSheetOpen(!sheetOpen); 
+                 }
+              }}
+            >
+              <span className="mapCheckpointSummaryText">{sheetSummaryText}</span>
+            </div>
+
+            <div className="mapCheckpointBody">
+              {/* 2. PLANNING UI */}
               <>
                 {geoError && <p className="mapGeoErrorInline">{geoError}</p>}
                 
@@ -1869,7 +1919,6 @@ export default function MapPage() {
                 </form>
                 {errorMsg && <p className="mapErrorInline" style={{marginTop:'20px', textAlign:'center'}}>{errorMsg}</p>}
               </>
-            )}
           </div>
         </div>
       </section>
