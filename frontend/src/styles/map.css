@@ -161,6 +161,47 @@
   to { stroke-dashoffset: 0; } 
 }
 
+/* --- Street Name Labels --- */
+.street-name-label-icon {
+  background: none !important;
+  border: none !important;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.street-name-label-icon.hidden {
+  opacity: 0 !important;
+  transform: scale(0.85) !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+.street-name-label-icon.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.street-name-label {
+  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 
+    0 2px 8px rgba(97, 179, 41, 0.4),
+    0 0 0 2px rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transform: translate(-50%, -100%);
+  position: relative;
+  pointer-events: none;
+  user-select: none;
+  display: inline-block;
+  margin-top: -8px;
+}
+
 /* --- Time Pills --- */
 .route-label-icon { background: none; border: none; }
 
@@ -220,6 +261,10 @@
   
 
   pointer-events: none; 
+}
+
+.mapCheckpointSection.hidden {
+  display: none;
 }
 
 .mapCheckpointSheet {
@@ -1010,4 +1055,254 @@
   border-bottom-left-radius: 12px !important;
   border-bottom-right-radius: 12px !important;
   border-bottom: none !important; 
+}
+
+/* =========================================
+   INLINE STYLES MOVED TO CSS
+   ========================================= */
+
+/* --- Drag Handle --- */
+.drag-handle {
+  cursor: grab;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  color: #a0a0a0;
+}
+
+.drag-handle svg {
+  opacity: 0.6;
+}
+
+/* --- Draggable Item --- */
+.draggable-item {
+  position: relative;
+  margin-bottom: 0;
+}
+
+/* --- User Location Button --- */
+.user-location-btn {
+  position: absolute;
+  right: 16px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  transition: transform 0.1s ease;
+  user-select: none;
+}
+
+.user-location-btn.walking {
+  top: 120px;
+}
+
+.user-location-btn.not-walking {
+  top: 20px;
+}
+
+.user-location-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* --- Voice Toggle Button --- */
+.voice-toggle-btn {
+  position: absolute;
+  right: 16px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  transition: all 0.2s ease;
+}
+
+.voice-toggle-btn.walking {
+  top: 176px;
+}
+
+.voice-toggle-btn.not-walking {
+  top: 80px;
+}
+
+.voice-toggle-btn.enabled {
+  border: 2px solid #61b329;
+}
+
+.voice-toggle-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* --- Route Selection Container --- */
+.route-selection-container {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(97, 179, 41, 0.1);
+  border-radius: 16px;
+  border: 2px solid rgba(97, 179, 41, 0.3);
+  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.15);
+}
+
+.route-selection-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f3d1f;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* --- Navigation Arrow Buttons --- */
+.nav-arrow-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.9);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #1f3d1f;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.nav-arrow-btn.left {
+  left: 12px;
+}
+
+.nav-arrow-btn.right {
+  right: 12px;
+}
+
+.nav-arrow-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.nav-arrow-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+/* --- Step Counter --- */
+.step-counter {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #6a7a6e;
+}
+
+/* --- Checkpoint Detail Styles --- */
+.cp-benefits-title {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: #1f3d1f;
+}
+
+.cp-gif-emoji {
+  font-size: 40px;
+}
+
+.cp-reflection-textarea {
+  width: 100%;
+  height: 100px;
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #dcefdc;
+  background: #f8fdf8;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1f3d1f;
+  resize: none;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.cp-pagination-dot {
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* --- Checkpoint Controls --- */
+.checkpoint-locked-text {
+  font-size: 12px;
+  color: #6a7a6e;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.checkpoint-range-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
+}
+
+/* --- Theme Selector --- */
+.theme-selector {
+  margin-top: 16px;
+  border-top: 1px solid rgba(0,0,0,0.05);
+  padding-top: 12px;
+}
+
+.theme-selector-label {
+  font-size: 12px;
+  color: #6a7a6e;
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.theme-selector-select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #dcefdc;
+  background: rgba(255,255,255,0.8);
+  font-size: 13px;
+  color: #1f3d1f;
+  outline: none;
+  cursor: pointer;
+}
+
+/* --- Routes Container Spacing --- */
+.routes-container-spacing {
+  margin-top: 20px;
+}
+
+/* --- Reorder List --- */
+.reorder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- Error Message --- */
+.mapErrorInline {
+  margin-top: 20px;
+  text-align: center;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom"; 
 import {
   MapContainer,
@@ -145,6 +145,67 @@ function computeCheckpointPositions(coords, count) {
   return checkpoints;
 }
 
+// Sample points along route segments for street name display
+// This ensures street names appear throughout long segments, not just at maneuver points
+function sampleStreetNamePoints(steps, intervalMeters = 100) {
+  const streetPoints = [];
+  
+  if (!steps || steps.length === 0) return streetPoints;
+  
+  steps.forEach((step, stepIdx) => {
+    // Skip if no street name or geometry
+    if (!step.name || !step.geometry || step.geometry.length < 2 || step.name.trim() === '' || step.name === 'road') {
+      return;
+    }
+    
+    const geometry = step.geometry;
+    
+    // Calculate cumulative distances along this step's geometry
+    const cumDist = [0];
+    for (let i = 1; i < geometry.length; i++) {
+      const d = distanceMeters(geometry[i - 1], geometry[i]);
+      cumDist.push(cumDist[i - 1] + d);
+    }
+    
+    const totalDist = cumDist[cumDist.length - 1];
+    if (totalDist === 0) return;
+    
+    // Sample points at regular intervals along this segment
+    const numSamples = Math.max(1, Math.floor(totalDist / intervalMeters));
+    const sampleStep = totalDist / (numSamples + 1);
+    
+    for (let k = 1; k <= numSamples; k++) {
+      const targetDist = sampleStep * k;
+      
+      // Find which segment of the geometry this distance falls on
+      let segIndex = 1;
+      while (segIndex < cumDist.length && cumDist[segIndex] < targetDist) {
+        segIndex++;
+      }
+      
+      const prevIndex = segIndex - 1;
+      const segStart = geometry[prevIndex];
+      const segEnd = geometry[segIndex] || geometry[geometry.length - 1];
+      const segDist = cumDist[segIndex] - cumDist[prevIndex] || 1;
+      
+      const remaining = targetDist - cumDist[prevIndex];
+      const t = remaining / segDist;
+      
+      const lat = segStart.lat + (segEnd.lat - segStart.lat) * t;
+      const lng = segStart.lng + (segEnd.lng - segStart.lng) * t;
+      
+      streetPoints.push({
+        lat,
+        lng,
+        name: step.name,
+        stepIndex: stepIdx
+      });
+    }
+  });
+  
+  return streetPoints;
+}
+
 // --- ROUTE SELECTION HELPERS ---
 
 function getRouteMidpoint(route) {
@@ -209,9 +270,8 @@ function GripIcon({ dragControls }) {
     <div 
       className="drag-handle"
       onPointerDown={(e) => dragControls.start(e)}
-      style={{ cursor: 'grab', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#a0a0a0' }}
     >
-      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ opacity: 0.6 }}>
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
         <path d="M2 6H18M2 10H18M2 14H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
       </svg>
     </div>
@@ -225,7 +285,7 @@ const DraggableItem = ({ value, children }) => {
       value={value}
       dragListener={false} 
       dragControls={dragControls} 
-      style={{ position: "relative", marginBottom: 0 }}
+      className="draggable-item"
     >
       {children(dragControls)} 
     </Reorder.Item>
@@ -238,6 +298,49 @@ function ClickHandler({ onClick }) {
       onClick(e.latlng);
     },
   });
+  return null;
+}
+
+// Component to track map view - only updates zoom for street name visibility
+function MapViewTracker({ onZoomChange }) {
+  const map = useMap();
+  const lastZoomRef = useRef(null);
+  const updateTimeoutRef = useRef(null);
+  
+  useEffect(() => {
+    const updateZoom = () => {
+      const zoom = map.getZoom();
+      
+      // Debounce updates to prevent rapid toggling
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      
+      updateTimeoutRef.current = setTimeout(() => {
+        // Only update if zoom changed significantly (prevents rapid toggling)
+        if (lastZoomRef.current === null || Math.abs(zoom - lastZoomRef.current) > 0.1) {
+          lastZoomRef.current = zoom;
+          onZoomChange(zoom);
+        }
+      }, 100);
+    };
+    
+    // Initial update
+    const initialZoom = map.getZoom();
+    lastZoomRef.current = initialZoom;
+    onZoomChange(initialZoom);
+    
+    // Only listen to zoomend (not during zoom) to prevent rapid updates
+    map.on('zoomend', updateZoom);
+    
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      map.off('zoomend', updateZoom);
+    };
+  }, [map, onZoomChange]);
+  
   return null;
 }
 
@@ -282,38 +385,13 @@ function UserLocationButton({ userLocation, setHeading, isWalking }) {
   return (
     <button
       ref={btnRef} 
-      className="user-location-btn"
+      className={`user-location-btn ${isWalking ? 'walking' : 'not-walking'}`}
       onClick={handleLocate}
-      style={{
-        position: "absolute",
-        top: isWalking ? "120px" : "20px", 
-        right: "16px", 
-        zIndex: 1000,
-        width: "48px",
-        height: "48px",
-        borderRadius: "12px", 
-        background: "white",
-        border: "none",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "10px", 
-        transition: "transform 0.1s ease",
-        userSelect: "none"
-      }}
     >
       <img 
         src={isLocating ? UserLocationFillIcon : UserLocationIcon} 
         alt="Locate Me" 
-        draggable="false" 
-        style={{ 
-            width: "100%", 
-            height: "100%", 
-            objectFit: "contain",
-            pointerEvents: "none" 
-        }} 
+        draggable="false"
       />
     </button>
   );
@@ -334,36 +412,12 @@ function VoiceToggleButton({ voiceEnabled, toggleVoice, isWalking }) {
       ref={btnRef}
       onClick={toggleVoice}
       aria-label="Toggle Voice Guidance"
-      style={{
-        position: "absolute",
-        top: isWalking ? "176px" : "80px", 
-        right: "16px",
-        zIndex: 1000,
-        width: "48px",
-        height: "48px",
-        borderRadius: "12px",
-        background: "rgba(255, 255, 255, 0.85)", 
-        backdropFilter: "blur(5px)",
-        border: voiceEnabled ? "2px solid #61b329" : "none",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "10px", 
-        transition: "all 0.2s ease",
-      }}
+      className={`voice-toggle-btn ${isWalking ? 'walking' : 'not-walking'} ${voiceEnabled ? 'enabled' : ''}`}
     >
       <img 
         src={voiceEnabled ? VolumeIcon : MuteIcon} 
         alt={voiceEnabled ? "Voice On" : "Voice Muted"}
         draggable="false"
-        style={{ 
-          width: "100%", 
-          height: "100%", 
-          objectFit: "contain",
-          pointerEvents: "none" 
-        }} 
       />
     </button>
   );
@@ -398,6 +452,15 @@ function createDurationIcon(durationSeconds, isActive) {
     html: `<div class="route-label-pill ${isActive ? 'active' : ''}">${text}</div>`,
     iconSize: [null, null], 
     iconAnchor: [20, 10] 
+  });
+}
+
+function createStreetNameIcon(streetName) {
+  return L.divIcon({
+    className: "street-name-label-icon",
+    html: `<div class="street-name-label">${streetName}</div>`,
+    iconSize: [null, null],
+    iconAnchor: [0, 0]
   });
 }
 
@@ -439,6 +502,62 @@ export default function MapPage() {
   const slidesRef = useRef(null); 
   const [isZooming, setIsZooming] = useState(false);
   const isMounted = useRef(false);
+
+  // State to track if street names should be shown (with hysteresis to prevent flickering)
+  const [showStreetNames, setShowStreetNames] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  // Pre-calculated street name markers (calculated once when route is selected)
+  const [allStreetNameMarkers, setAllStreetNameMarkers] = useState([]);
+  
+  // Hysteresis thresholds: show at 16.5, hide at 15.5 (prevents flickering)
+  const ZOOM_SHOW_THRESHOLD = 16.5;
+  const ZOOM_HIDE_THRESHOLD = 15.5;
+  
+  // Track zoom level with ref to avoid state updates
+  const currentZoomRef = useRef(13);
+  const isWalkingRef = useRef(isWalking);
+  const showStreetNamesRef = useRef(false);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    isWalkingRef.current = isWalking;
+    if (!isWalking) {
+      showStreetNamesRef.current = false;
+      setShowStreetNames(false);
+    }
+  }, [isWalking]);
+  
+
+  // Update street name visibility based on zoom with hysteresis and smooth transitions
+  const handleZoomChange = useRef((zoom) => {
+    if (!isWalkingRef.current) {
+      if (showStreetNamesRef.current) {
+        showStreetNamesRef.current = false;
+        setShowStreetNames(false);
+      }
+      return;
+    }
+    
+    const previousZoom = currentZoomRef.current;
+    currentZoomRef.current = zoom;
+    
+    // Use hysteresis: show at 16.5, hide at 15.5
+    // This prevents rapid toggling when zoom is between thresholds
+    if (showStreetNamesRef.current) {
+      // Currently showing - only hide if zoomed out below hide threshold
+      if (zoom < ZOOM_HIDE_THRESHOLD) {
+        showStreetNamesRef.current = false;
+        setShowStreetNames(false);
+      }
+    } else {
+      // Currently hidden - only show if zoomed in above show threshold
+      if (zoom >= ZOOM_SHOW_THRESHOLD) {
+        showStreetNamesRef.current = true;
+        setShowStreetNames(true);
+      }
+    }
+  }).current;
 
   // --- LOCATION & HEADING ---
   const [userLocation, setUserLocation] = useState(() => {
@@ -483,6 +602,8 @@ export default function MapPage() {
   
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectionStep, setSelectionStep] = useState("destination");
+  const [showRouteSelection, setShowRouteSelection] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
 
   // Summary Card State
   const [showSummary, setShowSummary] = useState(false);
@@ -786,7 +907,7 @@ export default function MapPage() {
     setOriginQuery(label);
     setOriginResults([]);
     setShowOriginDropdown(false);
-    setIsOriginCurrentLocation(false); 
+    setIsOriginCurrentLocation(false);
   };
 
   // --- LOCATION & COMPASS LOGIC ---
@@ -1039,13 +1160,25 @@ export default function MapPage() {
         
         const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
 
-        const steps = route.legs[0].steps.map(step => ({
-          instruction: step.maneuver.type === 'depart' 
-            ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
-            : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
-          distance: step.distance,
-          maneuver: step.maneuver 
-        }));
+        const steps = route.legs[0].steps.map(step => {
+          // Extract geometry coordinates for this step
+          const stepGeometry = step.geometry?.coordinates || [];
+          const stepCoords = stepGeometry.map(([lng, lat]) => ({ lat, lng }));
+          
+          return {
+            instruction: step.maneuver.type === 'depart' 
+              ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
+              : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
+            distance: step.distance,
+            maneuver: step.maneuver,
+            name: step.name,
+            location: step.maneuver.location ? {
+              lat: step.maneuver.location[1],
+              lng: step.maneuver.location[0]
+            } : null,
+            geometry: stepCoords // Store full geometry for sampling
+          };
+        });
 
         return { coords, distance, duration: walkDurationSeconds, steps };
     });
@@ -1112,6 +1245,8 @@ export default function MapPage() {
       const routeOptions = await fetchRoutes(origin, destination);
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
+      setShowRouteSelection(true); // Show route selection UI
+      setShowDirections(false); // Ensure we start at route selection
 
       const selectedRoute = routeOptions[0];
       
@@ -1175,7 +1310,86 @@ export default function MapPage() {
       
       setVisitedIndices(new Set()); 
       setReflections({}); // Clear old reflections for new journey
+      
+      // Pre-calculate all street name markers for the selected route
+      if (routeOptions[0] && routeOptions[0].steps) {
+        const sampledPoints = sampleStreetNamePoints(routeOptions[0].steps, 100);
+        
+        // Group points by street name and select one point per street
+        const pointsByStreet = {};
+        sampledPoints.forEach(point => {
+          if (!pointsByStreet[point.name]) {
+            pointsByStreet[point.name] = [];
+          }
+          pointsByStreet[point.name].push(point);
+        });
+        
+        // For each street name, select a representative point (use the middle one for stability)
+        const markers = Object.keys(pointsByStreet).map(streetName => {
+          const points = pointsByStreet[streetName];
+          // Use the middle point of each street segment for better visibility
+          const middleIndex = Math.floor(points.length / 2);
+          const selectedPoint = points[middleIndex] || points[0];
+          
+          return {
+            ...selectedPoint,
+            streetName,
+            key: `street-${routeOptions[0].id}-${streetName}`
+          };
+        });
+        
+        setAllStreetNameMarkers(markers);
+      } else {
+        setAllStreetNameMarkers([]);
+      }
+      
       setSheetOpen(true);
+      
+      // Zoom out to show all routes with origin and destination
+      // Wait for sheet to render, then calculate proper padding
+      // Use requestAnimationFrame to ensure DOM has updated after setSheetOpen
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (map && routeOptions.length > 0) {
+            // Collect all coordinates from all routes
+            const allCoords = [];
+            routeOptions.forEach(route => {
+              if (route.coords && route.coords.length > 0) {
+                allCoords.push(...route.coords);
+              }
+            });
+            
+            // Add origin and destination to ensure they're visible
+            if (origin) allCoords.push(origin);
+            if (destination) allCoords.push(destination);
+            
+            if (allCoords.length > 0) {
+              // Create bounds from all coordinates
+              const bounds = L.latLngBounds(allCoords);
+              
+              // Get the actual height of the bottom sheet element
+              const sheetElement = document.querySelector('.mapCheckpointSheet');
+              let bottomPadding = 400; // Default fallback
+              
+              if (sheetElement) {
+                const sheetHeight = sheetElement.offsetHeight || sheetElement.clientHeight;
+                // Use the actual sheet height plus some extra padding for safety
+                bottomPadding = sheetHeight + 20;
+              } else {
+                // Fallback: calculate based on viewport if element not found
+                const viewportHeight = window.innerHeight;
+                bottomPadding = Math.max(400, viewportHeight * 0.5);
+              }
+              
+              map.fitBounds(bounds, {
+                padding: [80, 80, bottomPadding, 80], // [top, right, bottom, left] - extra bottom padding for sheet
+                animate: true,
+                duration: 1.0
+              });
+            }
+          }
+        });
+      });
 
     } catch (err) {
       console.error(err);
@@ -1197,13 +1411,22 @@ export default function MapPage() {
       setIsZooming(true);
 
       if (map && userLocation) {
-        map.flyTo(userLocation, 18, {
+        const targetZoom = 18;
+        map.flyTo(userLocation, targetZoom, {
           animate: true,
           duration: 2.0 
         });
-
+        
+        // Check zoom level after animation completes to show street names
         setTimeout(() => {
             setIsZooming(false);
+            // Trigger zoom check after zoom animation
+            if (map) {
+              const finalZoom = map.getZoom();
+              if (handleZoomChange) {
+                handleZoomChange(finalZoom);
+              }
+            }
         }, 2000);
       } else {
          setIsZooming(false);
@@ -1297,6 +1520,8 @@ export default function MapPage() {
     setOriginQuery("");
     setOriginResults([]);
     setActiveRoutine(null);
+    setShowRouteSelection(false); // Clear route selection state
+    setShowDirections(false); // Clear directions state
 
     if (map && userLocation) {
         map.flyTo(userLocation, 15, { animate: true });
@@ -1368,6 +1593,7 @@ export default function MapPage() {
         setActiveRouteIndex(0);
         setCheckpoints([]);
         setCheckpointPositions([]);
+        setAllStreetNameMarkers([]);
     }
     setSelectionStep("done");
   }
@@ -1375,6 +1601,41 @@ export default function MapPage() {
   // --- RENDER HELPERS ---
   const activeRoute = routes[activeRouteIndex];
   const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
+  
+  // Update street name markers when active route changes
+  useEffect(() => {
+    if (routes[activeRouteIndex] && routes[activeRouteIndex].steps) {
+      const selectedRoute = routes[activeRouteIndex];
+      const sampledPoints = sampleStreetNamePoints(selectedRoute.steps, 100);
+      
+      // Group points by street name and select one point per street
+      const pointsByStreet = {};
+      sampledPoints.forEach(point => {
+        if (!pointsByStreet[point.name]) {
+          pointsByStreet[point.name] = [];
+        }
+        pointsByStreet[point.name].push(point);
+      });
+      
+      // For each street name, select a representative point (use the middle one for stability)
+      const markers = Object.keys(pointsByStreet).map(streetName => {
+        const points = pointsByStreet[streetName];
+        // Use the middle point of each street segment for better visibility
+        const middleIndex = Math.floor(points.length / 2);
+        const selectedPoint = points[middleIndex] || points[0];
+        
+        return {
+          ...selectedPoint,
+          streetName,
+          key: `street-${selectedRoute.id}-${streetName}`
+        };
+      });
+      
+      setAllStreetNameMarkers(markers);
+    } else {
+      setAllStreetNameMarkers([]);
+    }
+  }, [routes[activeRouteIndex]?.id, routes[activeRouteIndex]?.steps]);
 
   return (
     <div className="mapPageRoot">
@@ -1408,6 +1669,9 @@ export default function MapPage() {
           />
 
           <ClickHandler onClick={handleMapClick} />
+          
+          {/* Map View Tracker - Updates view state for street name filtering */}
+          <MapViewTracker onZoomChange={handleZoomChange} />
           
           <UserLocationButton 
             userLocation={userLocation} 
@@ -1515,38 +1779,90 @@ export default function MapPage() {
               }}
             />
           )}
+
+          {/* Street Name Labels - Show only when zoomed in (pre-calculated, smooth transitions) */}
+          {isWalking && showStreetNames && allStreetNameMarkers.map((point) => (
+            <Marker
+              key={point.key}
+              position={point}
+              icon={createStreetNameIcon(point.name, true)}
+              zIndexOffset={800}
+            />
+          ))}
         </MapContainer>
       </div>
 
-      {/* --- TOP NAVIGATION POPUP WHEN WALKING --- */}
-      {isWalking && activeRoute && (
+      {/* --- TOP NAVIGATION POPUP WHEN WALKING OR VIEWING DIRECTIONS --- */}
+      {((isWalking || showDirections) && activeRoute) && (
         <div className="activeNavOverlay">
           <div className="activeNavHeaderRow">
             <button 
               className="activeNavBackBtn"
               onClick={() => {
-                setIsWalking(false);
-                setSheetOpen(true);
+                if (isWalking) {
+                  setIsWalking(false);
+                  setSheetOpen(true);
+                } else if (showDirections) {
+                  setShowDirections(false);
+                  setShowRouteSelection(true);
+                  setSheetOpen(true); // Show bottom sheet again
+                }
               }}
             >
               ‹
             </button>
-            <button 
-              className="activeNavEndBtn"
-              onClick={handleStopNavigation}
-            >
-              End
-            </button>
+            {isWalking ? (
+              <button 
+                className="activeNavEndBtn"
+                onClick={handleStopNavigation}
+              >
+                End
+              </button>
+            ) : (
+              <button 
+                className="activeNavEndBtn"
+                onClick={() => {
+                  setShowDirections(false);
+                  setShowRouteSelection(true);
+                  setSheetOpen(true); // Show bottom sheet again
+                }}
+              >
+                Change Route
+              </button>
+            )}
           </div>
 
           <div className="activeNavBody">
+            {showDirections && !isWalking && activeRoute.steps && activeRoute.steps.length > 1 && (
+              <button
+                onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                disabled={currentStep === 0}
+                className="nav-arrow-btn left"
+              >
+                ‹
+              </button>
+            )}
             <div className="activeNavMain">
-              {activeRoute.steps?.[currentStep]?.instruction || "Head towards destination"}
+              {activeRoute.steps?.[currentStep]?.instruction || activeRoute.steps?.[0]?.instruction || "Head towards destination"}
             </div>
             <div className="activeNavSub">
               <span>for</span>
-              <strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance)}</strong>
+              <strong>{formatDistance(activeRoute.steps?.[currentStep]?.distance || activeRoute.steps?.[0]?.distance)}</strong>
+              {showDirections && !isWalking && activeRoute.steps && (
+                <span className="step-counter">
+                  ({currentStep + 1} of {activeRoute.steps.length})
+                </span>
+              )}
             </div>
+            {showDirections && !isWalking && activeRoute.steps && activeRoute.steps.length > 1 && (
+              <button
+                onClick={() => setCurrentStep(Math.min(activeRoute.steps.length - 1, currentStep + 1))}
+                disabled={currentStep >= activeRoute.steps.length - 1}
+                className="nav-arrow-btn right"
+              >
+                ›
+              </button>
+            )}
           </div>
 
         </div>
@@ -1590,7 +1906,7 @@ export default function MapPage() {
                     />
                   ) : (
                     <div className="cp-gif-label">
-                        <span style={{fontSize: '40px'}}>🧘</span>
+                        <span className="cp-gif-emoji">🧘</span>
                         <p>No Animation</p>
                     </div>
                   )}
@@ -1605,7 +1921,7 @@ export default function MapPage() {
 
               {/* SLIDE 2: BENEFITS FROM DB */}
               <div className="cp-slide">
-                <h3 style={{fontSize: '18px', marginBottom: '16px', color: '#1f3d1f'}}>Benefits</h3>
+                <h3 className="cp-benefits-title">Benefits</h3>
                 
                 <div className="cp-benefits-list">
                   {selectedCheckpoint.exercise?.benefits ? (
@@ -1644,26 +1960,10 @@ export default function MapPage() {
                 
                 {/* --- NEW TEXT AREA --- */}
                 <textarea 
-                    className="cp-reflection-input"
+                    className="cp-reflection-input cp-reflection-textarea"
                     placeholder="Type your thoughts here..."
                     value={tempReflection}
                     onChange={(e) => setTempReflection(e.target.value)}
-                    style={{
-                        width: '100%',
-                        height: '100px',
-                        marginTop: '15px',
-                        padding: '12px',
-                        borderRadius: '12px',
-                        border: '1px solid #dcefdc',
-                        background: '#f8fdf8',
-                        fontFamily: 'inherit',
-                        fontSize: '14px',
-                        lineHeight: '1.4',
-                        color: '#1f3d1f',
-                        resize: 'none',
-                        outline: 'none',
-                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
-                    }}
                 />
 
                 <button 
@@ -1680,9 +1980,8 @@ export default function MapPage() {
                 {[0, 1, 2].map((i) => (
                     <div 
                         key={i}
-                        className={`cp-dot ${activeSlide === i ? 'active' : ''}`} 
+                        className={`cp-dot ${activeSlide === i ? 'active' : ''} cp-pagination-dot`} 
                         onClick={() => scrollToSlide(i)}
-                        style={{ cursor: 'pointer', padding: '4px' }}
                     />
                 ))}
             </div>
@@ -1717,8 +2016,7 @@ export default function MapPage() {
       )}
 
       <section 
-        className="mapCheckpointSection"
-        style={{ display: isWalking ? "none" : undefined }}
+        className={`mapCheckpointSection ${(isWalking || showDirections) ? 'hidden' : ''}`}
       >
           <div
             className={
@@ -1745,169 +2043,231 @@ export default function MapPage() {
               <>
                 {geoError && <p className="mapGeoErrorInline">{geoError}</p>}
                 
-                {/* --- 1. DIRECTIONS (Draggable Timeline) --- */}
-                <div className="abstract-timeline">
-                    
-                    {/* DRAGGABLE LIST */}
+                {/* --- 1. START/END INPUTS (Draggable Timeline) - Hidden during route selection & directions --- */}
+                {!showRouteSelection && !showDirections && (
+                  <div className="abstract-timeline">
+                      
+                      {/* DRAGGABLE LIST */}
                     <Reorder.Group 
                       axis="y" 
                       values={fieldOrder} 
                       onReorder={handleReorder} 
                       className="reorder-list"
-                      style={{listStyle: "none", padding: 0, margin: 0}}
                     >
-                      {fieldOrder.map((item) => (
-                        <DraggableItem key={item} value={item}>
-                          {(dragControls) => (
-                            <div className="location-row-abstract">
-                              <div className="location-pill-abstract">
-                                <input 
-                                  type="text" 
-                                  className="timeline-input"
-                                  placeholder={item === "origin" ? "Choose starting point" : "Where to?"}
-                                  value={item === "origin" ? originQuery : searchQuery}
-                                  onChange={item === "origin" ? handleOriginSearch : handleSearchChange}
-                                  onFocus={() => item === "origin" ? setShowOriginDropdown(true) : setShowDropdown(true)}
-                                  onBlur={() => setTimeout(() => item === "origin" ? setShowOriginDropdown(false) : setShowDropdown(false), 200)}
-                                />
-                                {/* Grip Handle */}
-                                <GripIcon dragControls={dragControls} />
-                                
-                                {/* DROPDOWNS */}
-                                {item === "origin" && showOriginDropdown && (
-                                  <div className="timeline-dropdown">
-                                    <div className="dropdown-option-special" onClick={handleUseMyLocation}>
-                                      <span>⌖</span> Use my current location
+                        {fieldOrder.map((item) => (
+                          <DraggableItem key={item} value={item}>
+                            {(dragControls) => (
+                              <div className="location-row-abstract">
+                                <div className="location-pill-abstract">
+                                  <input 
+                                    type="text" 
+                                    className="timeline-input"
+                                    placeholder={item === "origin" ? "Choose starting point" : "Where to?"}
+                                    value={item === "origin" ? originQuery : searchQuery}
+                                    onChange={item === "origin" ? handleOriginSearch : handleSearchChange}
+                                    onFocus={() => item === "origin" ? setShowOriginDropdown(true) : setShowDropdown(true)}
+                                    onBlur={() => setTimeout(() => item === "origin" ? setShowOriginDropdown(false) : setShowDropdown(false), 200)}
+                                  />
+                                  {/* Grip Handle */}
+                                  <GripIcon dragControls={dragControls} />
+                                  
+                                  {/* DROPDOWNS */}
+                                  {item === "origin" && showOriginDropdown && (
+                                    <div className="timeline-dropdown">
+                                      <div className="dropdown-option-special" onClick={handleUseMyLocation}>
+                                        <span>⌖</span> Use my current location
+                                      </div>
+                                      {originResults.map((result, idx) => (
+                                        <div key={idx} className="dropdown-option" onClick={() => selectOriginResult(result)}>
+                                          <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
+                                          <span className="dropdown-sub-text">{result.display_name}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                    {originResults.map((result, idx) => (
-                                      <div key={idx} className="dropdown-option" onClick={() => selectOriginResult(result)}>
-                                        <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
-                                        <span className="dropdown-sub-text">{result.display_name}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {item === "destination" && showDropdown && (
-                                  <div className="timeline-dropdown">
-                                    {searchResults.map((result, idx) => (
-                                      <div key={idx} className="dropdown-option" onClick={() => selectSearchResult(result)}>
-                                        <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
-                                        <span className="dropdown-sub-text">{result.display_name}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                  )}
+                                  {item === "destination" && showDropdown && (
+                                    <div className="timeline-dropdown">
+                                      {searchResults.map((result, idx) => (
+                                        <div key={idx} className="dropdown-option" onClick={() => selectSearchResult(result)}>
+                                          <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
+                                          <span className="dropdown-sub-text">{result.display_name}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </DraggableItem>
-                      ))}
-                    </Reorder.Group>
-                </div>
-
-                {/* --- 2. CHECKPOINTS & THEME SELECTOR --- */}
-                <div className="checkpoint-control-abstract">
-                    <div className="checkpoint-header">
-                        <span className="checkpoint-label">
-                           {activeRoutine ? `🧘 ${activeRoutine.title}` : "🧘 Yoga Checkpoints"}
-                        </span>
-                        <span className="checkpoint-count-display">{checkpointCount}</span>
-                    </div>
-                    
-                    {!activeRoutine ? (
-                        <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            step="1"
-                            className="styled-slider"
-                            value={checkpointCount}
-                            onChange={(e) => {
-                                const value = Number(e.target.value);
-                                setCheckpointCount(value);
-                                if (routes[activeRouteIndex]) {
-                                    updateCheckpointPositionsForRoute(routes[activeRouteIndex], value);
-                                } else {
-                                    setCheckpointPositions([]);
-                                }
-                            }}
-                        />
-                    ) : (
-                        <p style={{ fontSize: '12px', color: '#6a7a6e', marginTop: '4px', fontStyle: 'italic' }}>
-                           Checkpoints locked to routine.
-                        </p>
-                    )}
-
-                    {!activeRoutine && (
-                        <div style={{display:'flex', justifyContent:'space-between', marginTop:'8px', fontSize:'11px', color:'#888'}}>
-                            <span>1</span>
-                            <span>10</span>
-                        </div>
-                    )}
-
-                    {/* --- NEW: REFLECTION THEME SELECTOR --- */}
-                    <div className="theme-selector" style={{ marginTop: '16px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '12px' }}>
-                      <label style={{ fontSize: '12px', color: '#6a7a6e', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
-                        🧠 Reflection Theme
-                      </label>
-                      <select 
-                        value={selectedThemeId || ""} 
-                        onChange={(e) => setSelectedThemeId(e.target.value)}
-                        style={{ 
-                            width: '100%', 
-                            padding: '10px', 
-                            borderRadius: '8px', 
-                            border: '1px solid #dcefdc', 
-                            background: 'rgba(255,255,255,0.8)',
-                            fontSize: '13px',
-                            color: '#1f3d1f',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                      >
-                        <option value="">-- Random Mix --</option>
-                        {themes.map(t => (
-                            <option key={t.id} value={t.id}>{t.title}</option>
+                            )}
+                          </DraggableItem>
                         ))}
-                      </select>
-                    </div>
-
-                </div>    
-
-                {/* --- 3. ROUTES (Moved Down) --- */}
-                {routes.length > 1 && (
-                  <div 
-                    className="routeChoices"
-                    ref={routesContainerRef}
-                    onMouseDown={startDragging}
-                    onMouseLeave={stopDragging}
-                    onMouseUp={stopDragging}
-                    onMouseMove={onDragMove}
-                  >
-                    {routes.map((route, idx) => (
-                      <button
-                        key={route.id}
-                        type="button"
-                        className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
-                        onClick={() => {
-                          setActiveRouteIndex(idx);
-                          updateCheckpointPositionsForRoute(route, Number(checkpointCount));
-                        }}
-                      >
-                        {/* DURATION TEXT */}
-                        <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
-                      </button>
-                    ))}
+                      </Reorder.Group>
                   </div>
                 )}
 
-                {/* --- 4. ACTION BUTTONS --- */}
+                {/* --- 2. ROUTE SELECTION (Separate step - shown first after finding routes) --- */}
+                {showRouteSelection && routes.length > 0 && (
+                  <div className="route-selection-container">
+                    <h3 className="route-selection-title">
+                      Select a Route
+                    </h3>
+                    <div 
+                      className="routeChoices"
+                      ref={routesContainerRef}
+                      onMouseDown={startDragging}
+                      onMouseLeave={stopDragging}
+                      onMouseUp={stopDragging}
+                      onMouseMove={onDragMove}
+                    >
+                      {routes.map((route, idx) => (
+                        <button
+                          key={route.id}
+                          type="button"
+                          className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
+                          onClick={() => {
+                            setActiveRouteIndex(idx);
+                            const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
+                            updateCheckpointPositionsForRoute(route, countToUse);
+                          }}
+                        >
+                          {/* DURATION TEXT */}
+                          <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+
+                {/* --- 4. CHECKPOINTS & THEME SELECTOR (Hidden during route selection) --- */}
+                {!showRouteSelection && (
+                  <div className="checkpoint-control-abstract">
+                      <div className="checkpoint-header">
+                          <span className="checkpoint-label">
+                             {activeRoutine ? `🧘 ${activeRoutine.title}` : "🧘 Yoga Checkpoints"}
+                          </span>
+                          <span className="checkpoint-count-display">{checkpointCount}</span>
+                      </div>
+                      
+                      {!activeRoutine ? (
+                          <input
+                              type="range"
+                              min="1"
+                              max="10"
+                              step="1"
+                              className="styled-slider"
+                              value={checkpointCount}
+                              onChange={(e) => {
+                                  const value = Number(e.target.value);
+                                  setCheckpointCount(value);
+                                  if (routes[activeRouteIndex]) {
+                                      updateCheckpointPositionsForRoute(routes[activeRouteIndex], value);
+                                  } else {
+                                      setCheckpointPositions([]);
+                                  }
+                              }}
+                          />
+                      ) : (
+                          <p className="checkpoint-locked-text">
+                             Checkpoints locked to routine.
+                          </p>
+                      )}
+
+                      {!activeRoutine && (
+                          <div className="checkpoint-range-labels">
+                              <span>1</span>
+                              <span>10</span>
+                          </div>
+                      )}
+
+                      {/* --- NEW: REFLECTION THEME SELECTOR --- */}
+                      <div className="theme-selector">
+                        <label className="theme-selector-label">
+                          🧠 Reflection Theme
+                        </label>
+                        <select 
+                          value={selectedThemeId || ""} 
+                          onChange={(e) => setSelectedThemeId(e.target.value)}
+                          className="theme-selector-select"
+                        >
+                          <option value="">-- Random Mix --</option>
+                          {themes.map(t => (
+                              <option key={t.id} value={t.id}>{t.title}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                  </div>
+                )}
+
+                {/* --- 5. ROUTES (Shown on planning screen, hidden in selection & directions) --- */}
+                {!showRouteSelection && !showDirections && routes.length > 1 && (
+                  <div className="routes-container-spacing">
+                    <div 
+                      className="routeChoices"
+                      ref={routesContainerRef}
+                      onMouseDown={startDragging}
+                      onMouseLeave={stopDragging}
+                      onMouseUp={stopDragging}
+                      onMouseMove={onDragMove}
+                    >
+                      {routes.map((route, idx) => (
+                        <button
+                          key={route.id}
+                          type="button"
+                          className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
+                          onClick={() => {
+                            setActiveRouteIndex(idx);
+                            updateCheckpointPositionsForRoute(route, Number(checkpointCount));
+                          }}
+                        >
+                          {/* DURATION TEXT */}
+                          <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* --- 6. ACTION BUTTONS --- */}
                 <form onSubmit={handleSubmit}>
                   <div className="action-buttons-abstract">
-                    {routes.length > 0 ? (
+                    {routes.length > 0 && !showRouteSelection && !showDirections ? (
                       <>
                         <button className="btn-abstract btn-primary" type="button" onClick={handleStartNavigation}>Start Walk</button>
                         <button className="btn-abstract btn-secondary" type="submit" disabled={loading}>{loading ? "..." : "Refresh"}</button>
+                      </>
+                    ) : routes.length > 0 && showRouteSelection ? (
+                      <>
+                        <button
+                          className="btn-abstract btn-primary"
+                          type="button"
+                          onClick={() => {
+                            setShowRouteSelection(false);
+                            setSheetOpen(false); // Close bottom sheet
+                            handleStartNavigation(); // Start the walk immediately
+                          }}
+                        >
+                          Go
+                        </button>
+                        <button className="btn-abstract btn-secondary" type="submit" disabled={loading}>
+                          {loading ? "..." : "Refresh"}
+                        </button>
+                      </>
+                    ) : routes.length > 0 && showDirections ? (
+                      <>
+                        <button className="btn-abstract btn-primary" type="button" onClick={handleStartNavigation}>
+                          Start Walk
+                        </button>
+                        <button
+                          className="btn-abstract btn-secondary"
+                          type="button"
+                          onClick={() => {
+                            setShowDirections(false);
+                            setShowRouteSelection(true);
+                          }}
+                        >
+                          Change Route
+                        </button>
                       </>
                     ) : (
                       <>
@@ -1917,7 +2277,7 @@ export default function MapPage() {
                     )}
                   </div>
                 </form>
-                {errorMsg && <p className="mapErrorInline" style={{marginTop:'20px', textAlign:'center'}}>{errorMsg}</p>}
+                {errorMsg && <p className="mapErrorInline">{errorMsg}</p>}
               </>
           </div>
         </div>
