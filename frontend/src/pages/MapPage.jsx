@@ -613,7 +613,9 @@ export default function MapPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const voiceEnabledRef = useRef(voiceEnabled);
 
-  const apiBase = "http://localhost:5000";
+  // API Base URL - Use environment variable or fallback to localhost
+  // For mobile testing, set VITE_API_URL=http://YOUR_IP:5000 in .env.local
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const lastStepChangeRef = useRef(Date.now());
   const searchTimeoutRef = useRef(null);
 
@@ -913,9 +915,32 @@ export default function MapPage() {
   // --- LOCATION & COMPASS LOGIC ---
   useEffect(() => {
     if (!("geolocation" in navigator)) {
-      setGeoError("Location is not supported.");
+      setGeoError("Location is not supported by your browser.");
       return;
     }
+
+    const handleLocationError = (err) => {
+      console.error("Geolocation error:", err);
+      let errorMessage = "Could not access your location.";
+      
+      switch(err.code) {
+        case err.PERMISSION_DENIED:
+          errorMessage = "Location permission denied. Please allow location access in your browser settings.";
+          break;
+        case err.POSITION_UNAVAILABLE:
+          errorMessage = "Location information unavailable. Check your device location settings.";
+          break;
+        case err.TIMEOUT:
+          errorMessage = "Location request timed out. Please try again.";
+          break;
+        default:
+          errorMessage = "Could not access your location.";
+      }
+      
+      if (!userLocation) {
+        setGeoError(errorMessage);
+      }
+    };
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -923,8 +948,9 @@ export default function MapPage() {
         const newLoc = { lat: latitude, lng: longitude };
         setUserLocation(newLoc);
         localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
+        setGeoError(""); // Clear any previous errors
       },
-      (err) => console.warn("Coarse location failed (non-critical)", err),
+      handleLocationError,
       { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
 
@@ -933,17 +959,14 @@ export default function MapPage() {
         const { latitude, longitude } = pos.coords;
         const newLoc = { lat: latitude, lng: longitude };
         setUserLocation(newLoc);
-        setGeoError("");
+        setGeoError(""); // Clear errors on success
         localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
         
         if (pos.coords.heading && !heading) {
            setHeading(pos.coords.heading);
         }
       },
-      (err) => {
-        console.error("Geo error", err);
-        if (!userLocation) setGeoError("Could not access your location.");
-      },
+      handleLocationError,
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
 
