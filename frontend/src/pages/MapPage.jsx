@@ -1345,44 +1345,81 @@ export default function MapPage() {
       
       setSheetOpen(true);
       
-      // Zoom out to show all routes with origin and destination
-      // Wait for sheet to render, then calculate proper padding
-      // Use requestAnimationFrame to ensure DOM has updated after setSheetOpen
+     
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (map && routeOptions.length > 0) {
-            // Collect all coordinates from all routes
+          if (map && routeOptions.length > 0 && origin && destination) {
+            // Calculate distance between origin and destination
+            const journeyDistance = distanceMeters(origin, destination);
+            
+            let calculatedZoom;
+            if (journeyDistance < 1000) {
+              // Very short (< 1km): zoom level 15-16
+              calculatedZoom = 16 - (journeyDistance / 1000) * 1;
+            } else if (journeyDistance < 5000) {
+              // Short (1-5km): zoom level 13-15
+              calculatedZoom = 15 - ((journeyDistance - 1000) / 4000) * 2;
+            } else if (journeyDistance < 15000) {
+              // Medium (5-15km): zoom level 11-13
+              calculatedZoom = 13 - ((journeyDistance - 5000) / 10000) * 2;
+            } else {
+              // Long (> 15km): zoom level 9-11
+              calculatedZoom = Math.max(9, 11 - ((journeyDistance - 15000) / 10000) * 1);
+            }
+            
+            // Clamp zoom to reasonable bounds
+            calculatedZoom = Math.max(9, Math.min(16, calculatedZoom));
+            
+            // Collect all coordinates from all routes for bounds calculation
             const allCoords = [];
             routeOptions.forEach(route => {
               if (route.coords && route.coords.length > 0) {
                 allCoords.push(...route.coords);
               }
             });
-            
-            // Add origin and destination to ensure they're visible
-            if (origin) allCoords.push(origin);
-            if (destination) allCoords.push(destination);
+            allCoords.push(origin, destination);
             
             if (allCoords.length > 0) {
               // Create bounds from all coordinates
               const bounds = L.latLngBounds(allCoords);
               
-              // Get the actual height of the bottom sheet element
-              const sheetElement = document.querySelector('.mapCheckpointSheet');
-              let bottomPadding = 400; // Default fallback
+              // Get actual dimensions dynamically to adapt to different devices
+              const viewportHeight = window.innerHeight;
+              const viewportWidth = window.innerWidth;
               
+              // Get the actual map container to determine available space
+              const mapContainer = map.getContainer();
+              const mapContainerHeight = mapContainer ? mapContainer.clientHeight : viewportHeight;
+              
+              // Get the actual card height dynamically
+              const sheetElement = document.querySelector('.mapCheckpointSheet');
+              let cardHeight = 0;
               if (sheetElement) {
-                const sheetHeight = sheetElement.offsetHeight || sheetElement.clientHeight;
-                // Use the actual sheet height plus some extra padding for safety
-                bottomPadding = sheetHeight + 20;
-              } else {
-                // Fallback: calculate based on viewport if element not found
-                const viewportHeight = window.innerHeight;
-                bottomPadding = Math.max(400, viewportHeight * 0.5);
+                cardHeight = sheetElement.offsetHeight || sheetElement.clientHeight || 0;
               }
               
+              // Calculate nav bar height: difference between viewport and map container
+              // This accounts for any nav bar, status bar, or other UI elements
+              const navBarHeight = viewportHeight - mapContainerHeight;
+              
+              // Calculate visible map area: map container - card
+              // The card overlays the map, so visible area is map container minus card
+              const visibleMapHeight = mapContainerHeight - cardHeight;
+              
+              // Calculate top padding dynamically based on viewport
+              // Map controls (zoom, location buttons) typically take ~6-10% of viewport height
+              const topPadding = Math.max(60, viewportHeight * 0.08); // Minimum 60px, or 8% of viewport
+              
+              // Bottom padding: card height to account for the card overlay
+              const bottomPadding = cardHeight;
+              
+              // Use large horizontal padding to position origin on left side and destination on right side
+              const horizontalPadding = Math.max(viewportWidth * 0.3, 150); // 30% of viewport width, minimum 150px
+              
+              // Use fitBounds with padding that accounts for card to center journey in visible map area
               map.fitBounds(bounds, {
-                padding: [80, 80, bottomPadding, 80], // [top, right, bottom, left] - extra bottom padding for sheet
+                padding: [topPadding, horizontalPadding, bottomPadding, horizontalPadding], // [top, right, bottom, left]
+                maxZoom: calculatedZoom, // Zoom level based on journey distance
                 animate: true,
                 duration: 1.0
               });

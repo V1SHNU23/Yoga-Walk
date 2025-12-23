@@ -367,7 +367,7 @@ ul {
 /* greyish summary bar, like collapsed state */
 .mapCheckpointSummaryBar {
   /* Fixed height ensures consistent collapsing */
-  height: 60px; 
+  height: 100px; 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -402,10 +402,11 @@ ul {
 }
 
 .mapCheckpointSummaryText {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  color: #1f3d1f;
-  margin-top: 10px; /* Push text down slightly to clear handle */
+  color: #232323;
+  margin-top: 50px; /* Push text down slightly to clear handle */
+  letter-spacing: -0.2px;
 }
 
 .mapCheckpointChevron {
@@ -415,7 +416,7 @@ ul {
 
 /* body of the sheet */
 .mapCheckpointBody {
-  padding: 0 24px;
+  padding: 12px 24px 24px 24px;
   overflow-y: auto;
   scrollbar-width: none;
   
@@ -425,7 +426,7 @@ ul {
   /* OPEN STATE defaults */
   max-height: 60vh;
   opacity: 1;
-  padding-bottom: 20px;
+  padding-bottom: 24px;
 }
 
 .mapCheckpointBody::-webkit-scrollbar {

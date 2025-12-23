@@ -296,8 +296,8 @@
 
 /* HEADER */
 .mapCheckpointSummaryBar {
-  min-height: 60px; 
-  padding: 16px 16px 0px; 
+  min-height: 56px; 
+  padding: 12px 16px 0px; 
   background: #ffffff;
   border-radius: 24px 24px 0 0;
   position: relative;
@@ -321,13 +321,14 @@
 .mapCheckpointSummaryText {
   font-size: 16px;
   font-weight: 700;
-  color: #1f3d1f;
-  margin-top: 8px;
+  color: #232323;
+  margin-top: 10px;
+  letter-spacing: -0.2px;
 }
 
 /* BODY CONTENT */
 .mapCheckpointBody {
-  padding: 0 20px 20px 20px; /* Added bottom padding for spacing */
+  padding: 0 24px 24px 24px; /* Removed top padding to eliminate white space */
   overflow-y: auto;      
   height: auto;
   max-height: 50vh;      
@@ -534,26 +535,55 @@
    ========================================= */
 
 .routeChoices {
-  display: flex; flex-direction: row; overflow-x: auto;
-  gap: 12px; padding: 4px 2px 12px 2px; margin-bottom: 8px;       
-  cursor: grab; scrollbar-width: none; -ms-overflow-style: none;
+  display: flex; 
+  flex-direction: row; 
+  overflow-x: auto;
+  gap: 14px; 
+  padding: 6px 4px 16px 4px; 
+  margin-bottom: 0;       
+  cursor: grab; 
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
 }
 .routeChoices:active { cursor: grabbing; }
 .routeChoices::-webkit-scrollbar { display: none; }
 
 .routeChoiceBtn {
-  flex: 0 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0;
-  color: #1f3d1f; padding: 10px 16px; border-radius: 999px;
-  font-size: 13px; font-weight: 600; cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.2s ease;
+  flex: 0 0 auto; 
+  background-color: #ffffff; 
+  border: 1.5px solid rgba(224, 224, 224, 0.8);
+  color: #1f3d1f; 
+  padding: 14px 20px; 
+  border-radius: 999px;
+  font-size: 14px; 
+  font-weight: 600; 
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); 
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.routeChoiceBtn:hover { background-color: #f4f8f1; border-color: #61b329; transform: translateY(-1px); }
+.routeChoiceBtn:hover { 
+  background-color: #f8fbf6; 
+  border-color: #61b329; 
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(97, 179, 41, 0.15);
+}
 .routeChoiceBtnActive {
-  background-color: #61b329; color: #ffffff; border-color: #4a8c20;
-  box-shadow: 0 4px 8px rgba(97, 179, 41, 0.3);
+  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%);
+  color: #ffffff; 
+  border-color: #4a8c20;
+  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.35);
+  transform: scale(1.02);
 }
-.routeChoiceBtnActive:hover { background-color: #529922; }
+.routeChoiceBtnActive:hover { 
+  background: linear-gradient(135deg, #529922 0%, #3d7a1a 100%);
+  transform: scale(1.03);
+  box-shadow: 0 6px 16px rgba(97, 179, 41, 0.4);
+}
 
 
 /* =========================================
@@ -562,16 +592,58 @@
 
 .action-buttons-abstract { 
   display: flex; 
-  gap: 8px; margin-top: 8px; 
-  margin-bottom: 4px;
+  gap: 12px; 
+  margin-top: 24px; 
+  margin-bottom: 8px;
   position: relative;
   z-index: 1001;
   pointer-events: auto;
 }
-.btn-abstract { flex: 1; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; border: none; }
-.btn-primary { background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); color: #fff; }
-.btn-secondary { background: #fff5f5; color: #d32f2f; border: 2px solid #ffcdd2; }
-.btn-secondary:hover { background: #fee2e2; border-color: #ef5350; }
+.btn-abstract { 
+  flex: 1; 
+  padding: 16px 20px; 
+  border-radius: 16px; 
+  font-size: 16px; 
+  font-weight: 700; 
+  cursor: pointer; 
+  border: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.2px;
+}
+.btn-primary { 
+  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); 
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.3);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #529922 0%, #3d7a1a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(97, 179, 41, 0.4);
+}
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(97, 179, 41, 0.3);
+}
+.btn-secondary { 
+  background: #ffffff; 
+  color: #d32f2f; 
+  border: 2px solid #ffcdd2;
+  box-shadow: 0 2px 6px rgba(211, 47, 47, 0.1);
+}
+.btn-secondary:hover { 
+  background: #fff5f5; 
+  border-color: #ef5350;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(211, 47, 47, 0.15);
+}
+.btn-secondary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(211, 47, 47, 0.1);
+}
 
 .mapErrorInline {
   font-size: 13px; color: #c0392b; background: #fff0f0; padding: 8px 12px; border-radius: 8px; margin-top: 10px; display: inline-block;
@@ -1155,20 +1227,22 @@
 
 /* --- Route Selection Container --- */
 .route-selection-container {
-  margin-top: 20px;
-  padding: 20px;
-  background: rgba(97, 179, 41, 0.1);
-  border-radius: 16px;
-  border: 2px solid rgba(97, 179, 41, 0.3);
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.15);
+  margin-top: 0;
+  margin-bottom: 24px;
+  padding: 24px 20px;
+  background: linear-gradient(135deg, rgba(97, 179, 41, 0.08) 0%, rgba(97, 179, 41, 0.12) 100%);
+  border-radius: 20px;
+  border: 1.5px solid rgba(97, 179, 41, 0.25);
+  box-shadow: 0 2px 16px rgba(97, 179, 41, 0.12);
 }
 
 .route-selection-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
   color: #1f3d1f;
-  margin-bottom: 16px;
+  margin: 0 0 20px 0;
   text-align: center;
+  letter-spacing: -0.3px;
 }
 
 /* --- Navigation Arrow Buttons --- */
