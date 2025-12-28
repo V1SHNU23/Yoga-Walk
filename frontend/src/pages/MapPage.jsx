@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom"; 
 import {
   MapContainer,
@@ -145,49 +145,35 @@ function computeCheckpointPositions(coords, count) {
   return checkpoints;
 }
 
-// Sample points along route segments for street name display
-// This ensures street names appear throughout long segments, not just at maneuver points
 function sampleStreetNamePoints(steps, intervalMeters = 100) {
   const streetPoints = [];
-  
   if (!steps || steps.length === 0) return streetPoints;
   
   steps.forEach((step, stepIdx) => {
-    // Skip if no street name or geometry
     if (!step.name || !step.geometry || step.geometry.length < 2 || step.name.trim() === '' || step.name === 'road') {
       return;
     }
-    
     const geometry = step.geometry;
-    
-    // Calculate cumulative distances along this step's geometry
     const cumDist = [0];
     for (let i = 1; i < geometry.length; i++) {
       const d = distanceMeters(geometry[i - 1], geometry[i]);
       cumDist.push(cumDist[i - 1] + d);
     }
-    
     const totalDist = cumDist[cumDist.length - 1];
     if (totalDist === 0) return;
-    
-    // Sample points at regular intervals along this segment
     const numSamples = Math.max(1, Math.floor(totalDist / intervalMeters));
     const sampleStep = totalDist / (numSamples + 1);
     
     for (let k = 1; k <= numSamples; k++) {
       const targetDist = sampleStep * k;
-      
-      // Find which segment of the geometry this distance falls on
       let segIndex = 1;
       while (segIndex < cumDist.length && cumDist[segIndex] < targetDist) {
         segIndex++;
       }
-      
       const prevIndex = segIndex - 1;
       const segStart = geometry[prevIndex];
       const segEnd = geometry[segIndex] || geometry[geometry.length - 1];
       const segDist = cumDist[segIndex] - cumDist[prevIndex] || 1;
-      
       const remaining = targetDist - cumDist[prevIndex];
       const t = remaining / segDist;
       
@@ -202,11 +188,8 @@ function sampleStreetNamePoints(steps, intervalMeters = 100) {
       });
     }
   });
-  
   return streetPoints;
 }
-
-// --- ROUTE SELECTION HELPERS ---
 
 function getRouteMidpoint(route) {
   if (!route || !route.coords || route.coords.length === 0) return null;
@@ -214,52 +197,38 @@ function getRouteMidpoint(route) {
   return route.coords[midIndex];
 }
 
-// Keep at most "maxRoutes" routes that are distinct in both distance and path
 function selectDistinctTopRoutes(routes, maxRoutes = 3) {
   if (!routes || routes.length === 0) return [];
-
-  // Sort by duration (shortest first)
   const sorted = [...routes].sort((a, b) => (a.duration || 0) - (b.duration || 0));
-
   const picked = [];
-  const DISTANCE_DIFF_FRACTION = 0.1; // 10% difference
-  const MIDPOINT_PROX_THRESHOLD = 80; // meters
+  const DISTANCE_DIFF_FRACTION = 0.1; 
+  const MIDPOINT_PROX_THRESHOLD = 80; 
 
   for (const route of sorted) {
     if (picked.length >= maxRoutes) break;
-
     const midA = getRouteMidpoint(route);
     const distA = route.distance || 0;
-
     let isSimilar = false;
     for (const chosen of picked) {
       const midB = getRouteMidpoint(chosen);
       const distB = chosen.distance || 0;
-
-      const fracDiff =
-        Math.abs(distA - distB) / Math.max(distA, distB, 1);
-
+      const fracDiff = Math.abs(distA - distB) / Math.max(distA, distB, 1);
       let midpointProximity = Infinity;
       if (midA && midB) {
         midpointProximity = distanceMeters(midA, midB);
       }
-
       if (fracDiff < DISTANCE_DIFF_FRACTION && midpointProximity < MIDPOINT_PROX_THRESHOLD) {
         isSimilar = true;
         break;
       }
     }
-
     if (!isSimilar) {
       picked.push(route);
     }
   }
-
-  // Fallback: if we filtered too aggressively, ensure at least one
   if (picked.length === 0) {
     picked.push(sorted[0]);
   }
-
   return picked;
 }
 
@@ -301,7 +270,6 @@ function ClickHandler({ onClick }) {
   return null;
 }
 
-// Component to track map view - only updates zoom for street name visibility
 function MapViewTracker({ onZoomChange }) {
   const map = useMap();
   const lastZoomRef = useRef(null);
@@ -310,29 +278,20 @@ function MapViewTracker({ onZoomChange }) {
   useEffect(() => {
     const updateZoom = () => {
       const zoom = map.getZoom();
-      
-      // Debounce updates to prevent rapid toggling
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
       }
-      
       updateTimeoutRef.current = setTimeout(() => {
-        // Only update if zoom changed significantly (prevents rapid toggling)
         if (lastZoomRef.current === null || Math.abs(zoom - lastZoomRef.current) > 0.1) {
           lastZoomRef.current = zoom;
           onZoomChange(zoom);
         }
       }, 100);
     };
-    
-    // Initial update
     const initialZoom = map.getZoom();
     lastZoomRef.current = initialZoom;
     onZoomChange(initialZoom);
-    
-    // Only listen to zoomend (not during zoom) to prevent rapid updates
     map.on('zoomend', updateZoom);
-    
     return () => {
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
@@ -492,9 +451,7 @@ export default function MapPage() {
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
 
   // --- NEW: REFLECTION STATE ---
-  // Stores all answers: { 1: "felt good", 2: "hard" }
   const [reflections, setReflections] = useState({}); 
-  // Stores current typing for the active slide
   const [tempReflection, setTempReflection] = useState(""); 
   
   // --- SWIPEABLE CARD STATE ---
@@ -503,23 +460,17 @@ export default function MapPage() {
   const [isZooming, setIsZooming] = useState(false);
   const isMounted = useRef(false);
 
-  // State to track if street names should be shown (with hysteresis to prevent flickering)
+  // Street Name Visibility
   const [showStreetNames, setShowStreetNames] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  
-  // Pre-calculated street name markers (calculated once when route is selected)
   const [allStreetNameMarkers, setAllStreetNameMarkers] = useState([]);
   
-  // Hysteresis thresholds: show at 16.5, hide at 15.5 (prevents flickering)
   const ZOOM_SHOW_THRESHOLD = 16.5;
   const ZOOM_HIDE_THRESHOLD = 15.5;
   
-  // Track zoom level with ref to avoid state updates
   const currentZoomRef = useRef(13);
   const isWalkingRef = useRef(isWalking);
   const showStreetNamesRef = useRef(false);
   
-  // Keep refs in sync with state
   useEffect(() => {
     isWalkingRef.current = isWalking;
     if (!isWalking) {
@@ -528,8 +479,6 @@ export default function MapPage() {
     }
   }, [isWalking]);
   
-
-  // Update street name visibility based on zoom with hysteresis and smooth transitions
   const handleZoomChange = useRef((zoom) => {
     if (!isWalkingRef.current) {
       if (showStreetNamesRef.current) {
@@ -538,20 +487,14 @@ export default function MapPage() {
       }
       return;
     }
-    
     const previousZoom = currentZoomRef.current;
     currentZoomRef.current = zoom;
-    
-    // Use hysteresis: show at 16.5, hide at 15.5
-    // This prevents rapid toggling when zoom is between thresholds
     if (showStreetNamesRef.current) {
-      // Currently showing - only hide if zoomed out below hide threshold
       if (zoom < ZOOM_HIDE_THRESHOLD) {
         showStreetNamesRef.current = false;
         setShowStreetNames(false);
       }
     } else {
-      // Currently hidden - only show if zoomed in above show threshold
       if (zoom >= ZOOM_SHOW_THRESHOLD) {
         showStreetNamesRef.current = true;
         setShowStreetNames(true);
@@ -613,15 +556,12 @@ export default function MapPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const voiceEnabledRef = useRef(voiceEnabled);
 
-  // API Base URL - Use environment variable or fallback to localhost
-  // For mobile testing, set VITE_API_URL=http://YOUR_IP:5000 in .env.local
   const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const lastStepChangeRef = useRef(Date.now());
   const searchTimeoutRef = useRef(null);
-
   const walkStartTimeRef = useRef(null);
 
-  // --- 1. FETCH REFLECTION THEMES ON MOUNT ---
+  // --- EFFECTS ---
   useEffect(() => {
     fetch(`${apiBase}/api/themes`)
         .then(res => res.json())
@@ -634,7 +574,6 @@ export default function MapPage() {
         .catch(err => console.error("Failed to fetch themes", err));
   }, []);
 
-  // --- 2. INITIALIZE FROM ROUTINE (if passed) ---
   useEffect(() => {
     if (location.state && location.state.routine) {
         const routine = location.state.routine;
@@ -645,7 +584,6 @@ export default function MapPage() {
     }
   }, [location.state]);
 
-  // Keep ref in sync
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
     if (!voiceEnabled) {
@@ -676,18 +614,15 @@ export default function MapPage() {
     }
   }, [map, userLocation, hasCenteredOnLoad]);
 
-  // --- UPDATED: HANDLE CHECKPOINT OPEN ---
   useEffect(() => {
     if (selectedCheckpoint) {
       setActiveSlide(0);
-      // RESET TEMP REFLECTION TO EXISTING SAVED TEXT (IF ANY)
       setTempReflection(reflections[selectedCheckpoint.index] || "");
-
       if (slidesRef.current) {
         slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
       }
     }
-  }, [selectedCheckpoint]); // note: we don't depend on 'reflections' to avoid loops
+  }, [selectedCheckpoint]);
 
   useEffect(() => {
     if (destinationLabel && !showDropdown) {
@@ -701,7 +636,6 @@ export default function MapPage() {
     }
   }, [originLabel, showOriginDropdown]);
 
-  // --- RESTORE/SAVE STATE LOGIC ---
   useEffect(() => {
     const savedState = localStorage.getItem("activeWalkState");
     if (savedState) {
@@ -722,7 +656,6 @@ export default function MapPage() {
             if (parsed.originLabel) setOriginLabel(parsed.originLabel);
             if (parsed.destinationLabel) setDestinationLabel(parsed.destinationLabel);
             if (parsed.voiceEnabled !== undefined) setVoiceEnabled(parsed.voiceEnabled);
-            // NEW: Restore reflections
             if (parsed.reflections) setReflections(parsed.reflections);
         } catch (e) {
             console.error("Failed to restore walk state", e);
@@ -752,7 +685,7 @@ export default function MapPage() {
             originLabel,
             destinationLabel,
             voiceEnabled,
-            reflections // NEW: Save reflections
+            reflections 
         };
         localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
     } else {
@@ -760,7 +693,6 @@ export default function MapPage() {
     }
   }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel, voiceEnabled, reflections]);
 
-  // --- SLIDE SCROLL HANDLER ---
   const handleSlideScroll = () => {
     if (slidesRef.current) {
       const { scrollLeft, clientWidth } = slidesRef.current;
@@ -778,7 +710,6 @@ export default function MapPage() {
     }
   };
 
-  // --- DRAG SCROLL HANDLERS ---
   const startDragging = (e) => {
     setIsDraggingRoute(true);
     setStartX(e.pageX - routesContainerRef.current.offsetLeft);
@@ -797,7 +728,6 @@ export default function MapPage() {
     routesContainerRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  // --- REORDER HANDLER ---
   const handleReorder = (newOrder) => {
     setFieldOrder(newOrder);
     if (newOrder[0] !== fieldOrder[0]) {
@@ -808,7 +738,6 @@ export default function MapPage() {
     }
   };
 
-  // --- SEARCH LOGIC ---
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -912,7 +841,6 @@ export default function MapPage() {
     setIsOriginCurrentLocation(false);
   };
 
-  // --- LOCATION & COMPASS LOGIC ---
   useEffect(() => {
     if (!("geolocation" in navigator)) {
       setGeoError("Location is not supported by your browser.");
@@ -948,7 +876,7 @@ export default function MapPage() {
         const newLoc = { lat: latitude, lng: longitude };
         setUserLocation(newLoc);
         localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
-        setGeoError(""); // Clear any previous errors
+        setGeoError("");
       },
       handleLocationError,
       { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
@@ -959,9 +887,8 @@ export default function MapPage() {
         const { latitude, longitude } = pos.coords;
         const newLoc = { lat: latitude, lng: longitude };
         setUserLocation(newLoc);
-        setGeoError(""); // Clear errors on success
+        setGeoError("");
         localStorage.setItem("lastKnownLocation", JSON.stringify(newLoc));
-        
         if (pos.coords.heading && !heading) {
            setHeading(pos.coords.heading);
         }
@@ -997,7 +924,6 @@ export default function MapPage() {
     });
   };
 
-  // 1.5 Determine Country Code
   useEffect(() => {
     const setCodeFromGeo = async () => {
       if (!userLocation) return;
@@ -1021,12 +947,10 @@ export default function MapPage() {
     }
   }, [userLocation, userCountryCode]);
 
-  // 2. Automatic Navigation Hook
   useEffect(() => {
     if (!isWalking || !userLocation || !routes[activeRouteIndex]) return;
 
     const activeRoute = routes[activeRouteIndex];
-    
     if (!activeRoute.steps || activeRoute.steps.length === 0) return;
     if (currentStep >= activeRoute.steps.length - 1) return;
 
@@ -1037,9 +961,7 @@ export default function MapPage() {
         lat: targetStep.maneuver.location[1],
         lng: targetStep.maneuver.location[0]
       };
-
       const dist = distanceMeters(userLocation, targetCoords);
-
       if (dist < STEP_ADVANCE_THRESHOLD) {
         if (Date.now() - lastStepChangeRef.current > 3000) {
           advanceStep();
@@ -1049,7 +971,6 @@ export default function MapPage() {
     }
   }, [userLocation, isWalking, currentStep, routes, activeRouteIndex]);
 
-  // --- VOICE GUIDANCE HOOK FOR STEPS ---
   useEffect(() => {
     if (isWalking && routes[activeRouteIndex]) {
         const currentInstruction = routes[activeRouteIndex].steps?.[currentStep]?.instruction;
@@ -1059,10 +980,8 @@ export default function MapPage() {
     }
   }, [currentStep, isWalking, activeRouteIndex, routes]);
 
-  // 3. Checkpoint Arrival Hook
   useEffect(() => {
     if (!isWalking || !userLocation || checkpointPositions.length === 0) return;
-
     checkpointPositions.forEach((pos, idx) => {
       if (visitedIndices.has(idx)) return;
       const dist = distanceMeters(userLocation, pos);
@@ -1077,12 +996,9 @@ export default function MapPage() {
     });
   }, [userLocation, isWalking, checkpointPositions, visitedIndices, checkpoints]);
 
-  // 4. Auto-Finish Hook
   useEffect(() => {
     if (!isWalking || !userLocation || !destination) return;
-    
     const distToEnd = distanceMeters(userLocation, destination);
-    
     if (distToEnd < 30) {
        handleStopNavigation();
     }
@@ -1090,12 +1006,10 @@ export default function MapPage() {
 
   useEffect(() => {
     if (map && userLocation && !hasCenteredOnLoad) {
-      map.setView(userLocation, 15, { animate: false }); // Instant set
+      map.setView(userLocation, 15, { animate: false }); 
       setHasCenteredOnLoad(true);
     }
   }, [map, userLocation, hasCenteredOnLoad]);
-
-  // --- LOGIC FUNCTIONS ---
 
   function advanceStep() {
     const activeRoute = routes[activeRouteIndex];
@@ -1111,6 +1025,46 @@ export default function MapPage() {
     }
     const positions = computeCheckpointPositions(route.coords, count);
     setCheckpointPositions(positions);
+  }
+
+  // --- NEW: RE-FIT FUNCTION (EXPOSED FOR BUTTON) ---
+  // This extracts the "Apple Maps" style centering logic so you can trigger it manually
+  function fitMapToRoute(customRoutes = null) {
+    const routesToUse = customRoutes || routes;
+    
+    if (map && routesToUse.length > 0 && origin && destination) {
+        // Collect coords
+        const allCoords = [];
+        routesToUse.forEach((route) => {
+          if (route.coords) allCoords.push(...route.coords);
+        });
+        allCoords.push(origin, destination);
+
+        if (allCoords.length > 0) {
+          const bounds = L.latLngBounds(allCoords);
+          
+          map.invalidateSize(); // Ensure map knows its container dimensions
+
+          // APPLE MAPS STYLE PADDING
+          // 1. Top Padding (10%): Keeps the route clear of top nav.
+          // 2. Bottom Padding (60%): Reserves bottom 60% for the white card.
+          // 3. Side Padding (50px): Pins sit comfortably away from the edges.
+          
+          const topPad = window.innerHeight * 0.10; 
+          const bottomPad = window.innerHeight * 0.60;
+          const sidePad = 50; 
+
+          console.log("Refitting Map:", { top: topPad, bottom: bottomPad, sides: sidePad });
+
+          map.fitBounds(bounds, {
+            paddingTopLeft: [sidePad, topPad],
+            paddingBottomRight: [sidePad, bottomPad],
+            maxZoom: 18, 
+            animate: true,
+            duration: 0.8, // FASTER ANIMATION
+          });
+        }
+    }
   }
 
   async function reverseGeocode(lat, lng) {
@@ -1134,7 +1088,6 @@ export default function MapPage() {
   async function handleUseMyLocation() {
     setOriginQuery("Locating...");
     setShowOriginDropdown(false);
-
     let loc = userLocation;
     if (!loc) {
       if (!("geolocation" in navigator)) {
@@ -1168,26 +1121,19 @@ export default function MapPage() {
 
   async function fetchSingleRoute(pointList) {
     const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
-    
     const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true&alternatives=true`;
-
     const res = await fetch(url);
     if (!res.ok) throw new Error("Could not get route");
-
     const data = await res.json();
     if (!data.routes || data.routes.length === 0) throw new Error("No route found");
 
     return data.routes.map(route => {
         const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
         const distance = route.distance;
-        
         const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
-
         const steps = route.legs[0].steps.map(step => {
-          // Extract geometry coordinates for this step
           const stepGeometry = step.geometry?.coordinates || [];
           const stepCoords = stepGeometry.map(([lng, lat]) => ({ lat, lng }));
-          
           return {
             instruction: step.maneuver.type === 'depart' 
               ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
@@ -1199,10 +1145,9 @@ export default function MapPage() {
               lat: step.maneuver.location[1],
               lng: step.maneuver.location[0]
             } : null,
-            geometry: stepCoords // Store full geometry for sampling
+            geometry: stepCoords 
           };
         });
-
         return { coords, distance, duration: walkDurationSeconds, steps };
     });
   }
@@ -1211,17 +1156,14 @@ export default function MapPage() {
     const routesList = [];
     const timestamp = Date.now(); 
     let idCounter = 0;
-
     try {
       const directs = await fetchSingleRoute([originPoint, destinationPoint]);
-      
       directs.forEach(route => {
           routesList.push({ id: `${timestamp}-${idCounter++}`, ...route });
       });
     } catch (e) {
       console.warn("Direct route failed", e);
     }
-
     const midLat = (originPoint.lat + destinationPoint.lat) / 2;
     const midLng = (originPoint.lng + destinationPoint.lng) / 2;
     const viaCandidates = [
@@ -1230,7 +1172,6 @@ export default function MapPage() {
       offsetPoint(midLat, midLng, 0, 250),
       offsetPoint(midLat, midLng, 0, -250),
     ];
-
     for (const via of viaCandidates) {
       if (routesList.length >= 6) break;
       try {
@@ -1240,9 +1181,7 @@ export default function MapPage() {
         });
       } catch (e) {}
     }
-
     if (!routesList.length) throw new Error("No route found");
-
     return selectDistinctTopRoutes(routesList, 3);
   }
 
@@ -1268,13 +1207,12 @@ export default function MapPage() {
       const routeOptions = await fetchRoutes(origin, destination);
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
-      setShowRouteSelection(true); // Show route selection UI
-      setShowDirections(false); // Ensure we start at route selection
+      setShowRouteSelection(true); 
+      setShowDirections(false); 
 
       const selectedRoute = routeOptions[0];
-      
       const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
-      updateCheckpointPositionsForRoute(selectedRoute, countToUse);
+      // Removed updateCheckpointPositionsForRoute here to prevent ghost markers
 
       const payload = {
         origin,
@@ -1282,63 +1220,59 @@ export default function MapPage() {
         checkpoint_count: countToUse,
       };
 
-      // 1. Fetch Route & Poses
       const res = await fetch(`${apiBase}/api/journey`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        let finalCheckpoints = data.checkpoints || [];
-
-        // 2. OVERRIDE POSES (Routine)
-        if (activeRoutine && activeRoutine.poses.length > 0) {
-            finalCheckpoints = finalCheckpoints.map((cp, index) => {
-                const poseIndex = index % activeRoutine.poses.length;
-                const routinePose = activeRoutine.poses[poseIndex];
-                return {
-                    ...cp,
-                    exercise: {
-                        name: routinePose.name,
-                        duration: routinePose.duration || "30 sec",
-                        benefits: routinePose.benefits,
-                        instructions: routinePose.instructions,
-                        gif: routinePose.image 
-                    }
-                };
-            });
-        }
-
-        // 3. MERGE REFLECTION QUESTIONS (Theme)
-        if (selectedThemeId) {
-            try {
-                const qRes = await fetch(`${apiBase}/api/theme/${selectedThemeId}/questions`);
-                const questions = await qRes.json();
-                
-                if (questions && questions.length > 0) {
-                     finalCheckpoints = finalCheckpoints.map((cp, i) => ({
-                         ...cp,
-                         reflection_question: questions[i % questions.length] 
-                     }));
-                }
-            } catch (qErr) {
-                console.warn("Failed to fetch reflection questions", qErr);
-            }
-        }
-        
-        setCheckpoints(finalCheckpoints);
+      if (!res.ok) {
+        throw new Error("Failed to load checkpoints from server");
       }
+
+      const data = await res.json();
+      let finalCheckpoints = data.checkpoints || [];
+      
+      // Update positions ONLY now that we have data
+      updateCheckpointPositionsForRoute(selectedRoute, countToUse);
+
+      if (activeRoutine && activeRoutine.poses.length > 0) {
+          finalCheckpoints = finalCheckpoints.map((cp, index) => {
+              const poseIndex = index % activeRoutine.poses.length;
+              const routinePose = activeRoutine.poses[poseIndex];
+              return {
+                  ...cp,
+                  exercise: {
+                      name: routinePose.name,
+                      duration: routinePose.duration || "30 sec",
+                      benefits: routinePose.benefits,
+                      instructions: routinePose.instructions,
+                      gif: routinePose.image 
+                  }
+              };
+          });
+      }
+      if (selectedThemeId) {
+          try {
+              const qRes = await fetch(`${apiBase}/api/theme/${selectedThemeId}/questions`);
+              const questions = await qRes.json();
+              if (questions && questions.length > 0) {
+                    finalCheckpoints = finalCheckpoints.map((cp, i) => ({
+                        ...cp,
+                        reflection_question: questions[i % questions.length] 
+                    }));
+              }
+          } catch (qErr) {
+              console.warn("Failed to fetch reflection questions", qErr);
+          }
+      }
+      setCheckpoints(finalCheckpoints);
       
       setVisitedIndices(new Set()); 
-      setReflections({}); // Clear old reflections for new journey
+      setReflections({});
       
-      // Pre-calculate all street name markers for the selected route
       if (routeOptions[0] && routeOptions[0].steps) {
         const sampledPoints = sampleStreetNamePoints(routeOptions[0].steps, 100);
-        
-        // Group points by street name and select one point per street
         const pointsByStreet = {};
         sampledPoints.forEach(point => {
           if (!pointsByStreet[point.name]) {
@@ -1346,21 +1280,16 @@ export default function MapPage() {
           }
           pointsByStreet[point.name].push(point);
         });
-        
-        // For each street name, select a representative point (use the middle one for stability)
         const markers = Object.keys(pointsByStreet).map(streetName => {
           const points = pointsByStreet[streetName];
-          // Use the middle point of each street segment for better visibility
           const middleIndex = Math.floor(points.length / 2);
           const selectedPoint = points[middleIndex] || points[0];
-          
           return {
             ...selectedPoint,
             streetName,
             key: `street-${routeOptions[0].id}-${streetName}`
           };
         });
-        
         setAllStreetNameMarkers(markers);
       } else {
         setAllStreetNameMarkers([]);
@@ -1368,92 +1297,17 @@ export default function MapPage() {
       
       setSheetOpen(true);
       
-     
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (map && routeOptions.length > 0 && origin && destination) {
-            // Calculate distance between origin and destination
-            const journeyDistance = distanceMeters(origin, destination);
-            
-            let calculatedZoom;
-            if (journeyDistance < 1000) {
-              // Very short (< 1km): zoom level 15-16
-              calculatedZoom = 16 - (journeyDistance / 1000) * 1;
-            } else if (journeyDistance < 5000) {
-              // Short (1-5km): zoom level 13-15
-              calculatedZoom = 15 - ((journeyDistance - 1000) / 4000) * 2;
-            } else if (journeyDistance < 15000) {
-              // Medium (5-15km): zoom level 11-13
-              calculatedZoom = 13 - ((journeyDistance - 5000) / 10000) * 2;
-            } else {
-              // Long (> 15km): zoom level 9-11
-              calculatedZoom = Math.max(9, 11 - ((journeyDistance - 15000) / 10000) * 1);
-            }
-            
-            // Clamp zoom to reasonable bounds
-            calculatedZoom = Math.max(9, Math.min(16, calculatedZoom));
-            
-            // Collect all coordinates from all routes for bounds calculation
-            const allCoords = [];
-            routeOptions.forEach(route => {
-              if (route.coords && route.coords.length > 0) {
-                allCoords.push(...route.coords);
-              }
-            });
-            allCoords.push(origin, destination);
-            
-            if (allCoords.length > 0) {
-              // Create bounds from all coordinates
-              const bounds = L.latLngBounds(allCoords);
-              
-              // Get actual dimensions dynamically to adapt to different devices
-              const viewportHeight = window.innerHeight;
-              const viewportWidth = window.innerWidth;
-              
-              // Get the actual map container to determine available space
-              const mapContainer = map.getContainer();
-              const mapContainerHeight = mapContainer ? mapContainer.clientHeight : viewportHeight;
-              
-              // Get the actual card height dynamically
-              const sheetElement = document.querySelector('.mapCheckpointSheet');
-              let cardHeight = 0;
-              if (sheetElement) {
-                cardHeight = sheetElement.offsetHeight || sheetElement.clientHeight || 0;
-              }
-              
-              // Calculate nav bar height: difference between viewport and map container
-              // This accounts for any nav bar, status bar, or other UI elements
-              const navBarHeight = viewportHeight - mapContainerHeight;
-              
-              // Calculate visible map area: map container - card
-              // The card overlays the map, so visible area is map container minus card
-              const visibleMapHeight = mapContainerHeight - cardHeight;
-              
-              // Calculate top padding dynamically based on viewport
-              // Map controls (zoom, location buttons) typically take ~6-10% of viewport height
-              const topPadding = Math.max(60, viewportHeight * 0.08); // Minimum 60px, or 8% of viewport
-              
-              // Bottom padding: card height to account for the card overlay
-              const bottomPadding = cardHeight;
-              
-              // Use large horizontal padding to position origin on left side and destination on right side
-              const horizontalPadding = Math.max(viewportWidth * 0.3, 150); // 30% of viewport width, minimum 150px
-              
-              // Use fitBounds with padding that accounts for card to center journey in visible map area
-              map.fitBounds(bounds, {
-                padding: [topPadding, horizontalPadding, bottomPadding, horizontalPadding], // [top, right, bottom, left]
-                maxZoom: calculatedZoom, // Zoom level based on journey distance
-                animate: true,
-                duration: 1.0
-              });
-            }
-          }
-        });
-      });
+      // Use the helper to fit map after a short delay
+      setTimeout(() => {
+        fitMapToRoute(routeOptions);
+      }, 300);
 
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || "Failed to find route");
+      // Ensure we clean up if failed
+      setCheckpoints([]);
+      setCheckpointPositions([]);
     } finally {
       setLoading(false);
     }
@@ -1465,7 +1319,7 @@ export default function MapPage() {
       setCurrentStep(0);
       setVisitedIndices(new Set()); 
       setReflections({});
-	  setSheetOpen(false);
+	    setSheetOpen(false);
       walkStartTimeRef.current = Date.now();
 
       setIsZooming(true);
@@ -1474,13 +1328,10 @@ export default function MapPage() {
         const targetZoom = 18;
         map.flyTo(userLocation, targetZoom, {
           animate: true,
-          duration: 2.0 
+          duration: 1.0 // FASTER FLY-IN
         });
-        
-        // Check zoom level after animation completes to show street names
         setTimeout(() => {
             setIsZooming(false);
-            // Trigger zoom check after zoom animation
             if (map) {
               const finalZoom = map.getZoom();
               if (handleZoomChange) {
@@ -1507,9 +1358,7 @@ export default function MapPage() {
             distanceMeters += activeRoute.steps[i].distance || 0;
         }
     }
-    
     const distanceKm = (distanceMeters / 1000).toFixed(2);
-    
     setFinalMetrics({
         distance: distanceKm,
         duration: durationSeconds,
@@ -1519,7 +1368,6 @@ export default function MapPage() {
         start_coords: origin, 
         end_coords: destination    
     });
-
     setShowSummary(true);  
     setSheetOpen(false);
   };
@@ -1527,13 +1375,12 @@ export default function MapPage() {
   const handleSaveAndClose = async () => {
     try {
         const reflectionsData = Object.entries(reflections).map(([key, answer]) => {
-             const idx = Number(key); // Checkpoint Index (1-based)
-             const cpIndex = idx - 1; // Array Index (0-based)
+             const idx = Number(key);
+             const cpIndex = idx - 1; 
              const question = checkpoints[cpIndex]?.reflection_question || "Reflection";
              return { question, answer };
         });
 
-        // 2. Send to Backend
         await fetch(`${apiBase}/api/walk_complete`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1543,8 +1390,6 @@ export default function MapPage() {
                 checkpoints_completed: finalMetrics.checkpoints,
                 start_coords: finalMetrics.start_coords, 
                 end_coords: finalMetrics.end_coords,
-                
-                // --- NEW FIELD ---
                 reflections_data: reflectionsData 
             }),
         });
@@ -1552,7 +1397,6 @@ export default function MapPage() {
     } catch (e) {
         console.error("Save failed", e);
     }
-
     setShowSummary(false);
     setFinalMetrics(null);
     handleReset();
@@ -1573,25 +1417,23 @@ export default function MapPage() {
     setSelectionStep("destination");
     setIsWalking(false);
     setVisitedIndices(new Set()); 
-    setReflections({}); // Clear reflections
+    setReflections({}); 
     setSheetOpen(false);
     setSearchQuery("");
     setSearchResults([]);
     setOriginQuery("");
     setOriginResults([]);
     setActiveRoutine(null);
-    setShowRouteSelection(false); // Clear route selection state
-    setShowDirections(false); // Clear directions state
+    setShowRouteSelection(false); 
+    setShowDirections(false); 
 
     if (map && userLocation) {
         map.flyTo(userLocation, 15, { animate: true });
     }
   }
 
-  // --- NEW: COMPLETE CHECKPOINT HANDLER ---
   const handleCompleteCheckpoint = () => {
     if (selectedCheckpoint) {
-        // SAVE USER INPUT TO STATE (Keyed by Checkpoint Index)
         setReflections(prev => ({
             ...prev,
             [selectedCheckpoint.index]: tempReflection
@@ -1600,12 +1442,10 @@ export default function MapPage() {
     setSelectedCheckpoint(null);
   };
 
-  // --- EVENT HANDLERS ---
   async function handleMapClick(latlng) {
     if (isWalking) return; 
 
     const { lat, lng } = latlng;
-
     if (selectionStep === "originOnMap") {
       setOrigin({ lat, lng });
       setIsOriginCurrentLocation(false); 
@@ -1615,23 +1455,19 @@ export default function MapPage() {
       setSheetOpen(true);
       return;
     }
-
     setDestination({ lat, lng });
     const destLabel = await reverseGeocode(lat, lng);
     setDestinationLabel(destLabel);
-
     setRoutes([]);
     setActiveRouteIndex(0);
     setCheckpoints([]);
     setCheckpointPositions([]);
     setErrorMsg("");
-
     if (origin) {
         setSelectionStep("done");
     } else {
         setSelectionStep("chooseOrigin");
     }
-    
     setSheetOpen(true);
   }
 
@@ -1647,7 +1483,6 @@ export default function MapPage() {
     setDestinationLabel(newDestinationLabel);
     
     setIsOriginCurrentLocation(false); 
-    
     if (!newOrigin || !newDestination) {
         setRoutes([]);
         setActiveRouteIndex(0);
@@ -1658,17 +1493,13 @@ export default function MapPage() {
     setSelectionStep("done");
   }
 
-  // --- RENDER HELPERS ---
   const activeRoute = routes[activeRouteIndex];
   const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
   
-  // Update street name markers when active route changes
   useEffect(() => {
     if (routes[activeRouteIndex] && routes[activeRouteIndex].steps) {
       const selectedRoute = routes[activeRouteIndex];
       const sampledPoints = sampleStreetNamePoints(selectedRoute.steps, 100);
-      
-      // Group points by street name and select one point per street
       const pointsByStreet = {};
       sampledPoints.forEach(point => {
         if (!pointsByStreet[point.name]) {
@@ -1676,21 +1507,16 @@ export default function MapPage() {
         }
         pointsByStreet[point.name].push(point);
       });
-      
-      // For each street name, select a representative point (use the middle one for stability)
       const markers = Object.keys(pointsByStreet).map(streetName => {
         const points = pointsByStreet[streetName];
-        // Use the middle point of each street segment for better visibility
         const middleIndex = Math.floor(points.length / 2);
         const selectedPoint = points[middleIndex] || points[0];
-        
         return {
           ...selectedPoint,
           streetName,
           key: `street-${selectedRoute.id}-${streetName}`
         };
       });
-      
       setAllStreetNameMarkers(markers);
     } else {
       setAllStreetNameMarkers([]);
@@ -1700,8 +1526,6 @@ export default function MapPage() {
   return (
     <div className="mapPageRoot">
       <div className="mapWrapper">
-        
-        {/* --- SUMMARY CARD OVERLAY --- */}
         {showSummary && finalMetrics && (
             <WalkSummaryCard
                 distance={finalMetrics.distance}
@@ -1719,7 +1543,9 @@ export default function MapPage() {
         <MapContainer
           ref={setMap}
           center={userLocation || defaultCenter}
-          zoom={13}
+          zoom={15}
+          zoomSnap={0.1} 
+          wheelPxPerZoomLevel={30} // KEY FIX: Faster scroll zoom on desktop
           zoomControl={!isWalking}
           className={isWalking ? "mapContainer mapContainer-walking" : "mapContainer"}
         >
@@ -1730,7 +1556,6 @@ export default function MapPage() {
 
           <ClickHandler onClick={handleMapClick} />
           
-          {/* Map View Tracker - Updates view state for street name filtering */}
           <MapViewTracker onZoomChange={handleZoomChange} />
           
           <UserLocationButton 
@@ -1744,7 +1569,6 @@ export default function MapPage() {
             isWalking={isWalking}
           />
 
-          {/* DYNAMIC USER LOCATION PUCK */}
           {userLocation && (
             <Marker 
               position={userLocation} 
@@ -1753,12 +1577,10 @@ export default function MapPage() {
             />
           )}
 
-          {/* SHOW ORIGIN MARKER (ONLY IF NOT CURRENT LOCATION) */}
           {origin && !isOriginCurrentLocation && <Marker position={origin} />}
           
           {destination && <Marker position={destination} />}
 
-          {/* CHECKPOINT MARKERS */}
           {checkpointPositions.map((pos, idx) => (
             <Marker
               key={`cp-${idx}`}
@@ -1766,16 +1588,19 @@ export default function MapPage() {
               icon={makeCheckpointIcon(idx + 1)}
               eventHandlers={{
                 click: () => {
+                  console.log("Marker clicked. Index:", idx);
+                  console.log("Checkpoints data:", checkpoints);
                   const cpData = checkpoints[idx];
                   if (cpData) {
                     setSelectedCheckpoint({ ...cpData, index: idx + 1 });
+                  } else {
+                    console.warn("No data for this checkpoint index");
                   }
                 },
               }}
             />
           ))}
 
-          {/* TIME PILLS ON MAP (Hide when walking) */}
           {!isWalking && routes.map((route, idx) => {
             const midPointIndex = Math.floor(route.coords.length / 2);
             const midPoint = route.coords[midPointIndex];
@@ -1801,9 +1626,8 @@ export default function MapPage() {
             );
           })}
 
-          {/* ROUTES (Hide inactive routes when walking) */}
           {!isWalking && routes.map((route, idx) => {
-            if (idx === activeRouteIndex) return null; // Skip active for now
+            if (idx === activeRouteIndex) return null; 
 
             return (
               <Polyline
@@ -1826,7 +1650,6 @@ export default function MapPage() {
             );
           })}
 
-          {/* Render ACTIVE route last */}
           {routes[activeRouteIndex] && !isZooming && (
             <Polyline
               key={routes[activeRouteIndex].id}
@@ -1840,7 +1663,6 @@ export default function MapPage() {
             />
           )}
 
-          {/* Street Name Labels - Show only when zoomed in (pre-calculated, smooth transitions) */}
           {isWalking && showStreetNames && allStreetNameMarkers.map((point) => (
             <Marker
               key={point.key}
@@ -1852,7 +1674,6 @@ export default function MapPage() {
         </MapContainer>
       </div>
 
-      {/* --- TOP NAVIGATION POPUP WHEN WALKING OR VIEWING DIRECTIONS --- */}
       {((isWalking || showDirections) && activeRoute) && (
         <div className="activeNavOverlay">
           <div className="activeNavHeaderRow">
@@ -1865,7 +1686,7 @@ export default function MapPage() {
                 } else if (showDirections) {
                   setShowDirections(false);
                   setShowRouteSelection(true);
-                  setSheetOpen(true); // Show bottom sheet again
+                  setSheetOpen(true); 
                 }
               }}
             >
@@ -1884,7 +1705,7 @@ export default function MapPage() {
                 onClick={() => {
                   setShowDirections(false);
                   setShowRouteSelection(true);
-                  setSheetOpen(true); // Show bottom sheet again
+                  setSheetOpen(true); 
                 }}
               >
                 Change Route
@@ -1924,16 +1745,12 @@ export default function MapPage() {
               </button>
             )}
           </div>
-
         </div>
       )}
 
-      {/* --- SWIPEABLE CHECKPOINT DETAIL OVERLAY --- */}
       {selectedCheckpoint && (
         <div className="checkpoint-overlay-backdrop" onClick={() => setSelectedCheckpoint(null)}>
           <div className="checkpoint-detail-card" onClick={(e) => e.stopPropagation()}>
-            
-            {/* HEADER */}
             <div className="cp-detail-header">
               <span className="cp-detail-badge">Checkpoint {selectedCheckpoint.index}</span>
               <button className="cp-close-btn" onClick={() => setSelectedCheckpoint(null)}>×</button>
@@ -1943,13 +1760,11 @@ export default function MapPage() {
               {selectedCheckpoint.exercise?.name || "Yoga Pose"}
             </h2>
 
-            {/* --- SCROLLABLE CONTENT AREA --- */}
             <div 
               className="cp-slides-viewport" 
               ref={slidesRef} 
               onScroll={handleSlideScroll}
             >
-              {/* SLIDE 1: OVERVIEW & INSTRUCTIONS */}
               <div className="cp-slide">
                 <div className="cp-detail-meta">
                   <span className="cp-meta-item">⏱ {selectedCheckpoint.exercise?.duration || "30 sec"}</span>
@@ -1979,23 +1794,16 @@ export default function MapPage() {
                 </p>
               </div>
 
-              {/* SLIDE 2: BENEFITS FROM DB */}
               <div className="cp-slide">
                 <h3 className="cp-benefits-title">Benefits</h3>
-                
                 <div className="cp-benefits-list">
                   {selectedCheckpoint.exercise?.benefits ? (
                     selectedCheckpoint.exercise.benefits.split(',').map((benefit, i) => {
                       const text = benefit.trim();
                       const formattedText = text.charAt(0).toUpperCase() + text.slice(1);
-
                       return (
                         <div key={i} className="cp-benefit-item">
-                          <img 
-                            src={TickIcon} 
-                            alt="Check" 
-                            className="cp-benefit-icon" 
-                          />
+                          <img src={TickIcon} alt="Check" className="cp-benefit-icon" />
                           {formattedText}
                         </div>
                       );
@@ -2009,7 +1817,6 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* SLIDE 3: REFLECTION (UPDATED) */}
               <div className="cp-slide">
                 <div className="cp-question-container">
                   <span className="cp-question-icon">🤔</span>
@@ -2017,15 +1824,12 @@ export default function MapPage() {
                      {selectedCheckpoint.reflection_question || "How did your body feel while holding this pose?"}
                   </p>
                 </div>
-                
-                {/* --- NEW TEXT AREA --- */}
                 <textarea 
                     className="cp-reflection-input cp-reflection-textarea"
                     placeholder="Type your thoughts here..."
                     value={tempReflection}
                     onChange={(e) => setTempReflection(e.target.value)}
                 />
-
                 <button 
                   className="cp-complete-block-btn"
                   onClick={handleCompleteCheckpoint}
@@ -2035,7 +1839,6 @@ export default function MapPage() {
               </div>
             </div>
 
-            {/* PAGINATION DOTS */}
             <div className="cp-pagination">
                 {[0, 1, 2].map((i) => (
                     <div 
@@ -2049,7 +1852,6 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* --- FOOTER: WALK METRICS OR PLANNING SHEET --- */}
       {isWalking && activeRoute && (
         <section className="walkMetricsSection">
           <div className="walkMetricsBar">
@@ -2096,18 +1898,38 @@ export default function MapPage() {
               }}
             >
               <span className="mapCheckpointSummaryText">{sheetSummaryText}</span>
+              {/* REFRESH BUTTON */}
+              <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    fitMapToRoute();
+                }}
+                style={{
+                    marginLeft: "10px",
+                    background: "rgba(0,0,0,0.05)",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "24px",
+                    height: "24px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    color: "#555"
+                }}
+                title="Recenter Route"
+              >
+                ⟳
+              </button>
             </div>
 
             <div className="mapCheckpointBody">
-              {/* 2. PLANNING UI */}
               <>
                 {geoError && <p className="mapGeoErrorInline">{geoError}</p>}
                 
-                {/* --- 1. START/END INPUTS (Draggable Timeline) - Hidden during route selection & directions --- */}
                 {!showRouteSelection && !showDirections && (
                   <div className="abstract-timeline">
-                      
-                      {/* DRAGGABLE LIST */}
                     <Reorder.Group 
                       axis="y" 
                       values={fieldOrder} 
@@ -2128,10 +1950,7 @@ export default function MapPage() {
                                     onFocus={() => item === "origin" ? setShowOriginDropdown(true) : setShowDropdown(true)}
                                     onBlur={() => setTimeout(() => item === "origin" ? setShowOriginDropdown(false) : setShowDropdown(false), 200)}
                                   />
-                                  {/* Grip Handle */}
                                   <GripIcon dragControls={dragControls} />
-                                  
-                                  {/* DROPDOWNS */}
                                   {item === "origin" && showOriginDropdown && (
                                     <div className="timeline-dropdown">
                                       <div className="dropdown-option-special" onClick={handleUseMyLocation}>
@@ -2164,7 +1983,6 @@ export default function MapPage() {
                   </div>
                 )}
 
-                {/* --- 2. ROUTE SELECTION (Separate step - shown first after finding routes) --- */}
                 {showRouteSelection && routes.length > 0 && (
                   <div className="route-selection-container">
                     <h3 className="route-selection-title">
@@ -2189,7 +2007,6 @@ export default function MapPage() {
                             updateCheckpointPositionsForRoute(route, countToUse);
                           }}
                         >
-                          {/* DURATION TEXT */}
                           <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
                         </button>
                       ))}
@@ -2198,7 +2015,6 @@ export default function MapPage() {
                 )}
 
 
-                {/* --- 4. CHECKPOINTS & THEME SELECTOR (Hidden during route selection) --- */}
                 {!showRouteSelection && (
                   <div className="checkpoint-control-abstract">
                       <div className="checkpoint-header">
@@ -2239,7 +2055,6 @@ export default function MapPage() {
                           </div>
                       )}
 
-                      {/* --- NEW: REFLECTION THEME SELECTOR --- */}
                       <div className="theme-selector">
                         <label className="theme-selector-label">
                           🧠 Reflection Theme
@@ -2259,7 +2074,6 @@ export default function MapPage() {
                   </div>
                 )}
 
-                {/* --- 5. ROUTES (Shown on planning screen, hidden in selection & directions) --- */}
                 {!showRouteSelection && !showDirections && routes.length > 1 && (
                   <div className="routes-container-spacing">
                     <div 
@@ -2280,7 +2094,6 @@ export default function MapPage() {
                             updateCheckpointPositionsForRoute(route, Number(checkpointCount));
                           }}
                         >
-                          {/* DURATION TEXT */}
                           <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
                         </button>
                       ))}
@@ -2288,7 +2101,6 @@ export default function MapPage() {
                   </div>
                 )}
 
-                {/* --- 6. ACTION BUTTONS --- */}
                 <form onSubmit={handleSubmit}>
                   <div className="action-buttons-abstract">
                     {routes.length > 0 && !showRouteSelection && !showDirections ? (
@@ -2303,8 +2115,8 @@ export default function MapPage() {
                           type="button"
                           onClick={() => {
                             setShowRouteSelection(false);
-                            setSheetOpen(false); // Close bottom sheet
-                            handleStartNavigation(); // Start the walk immediately
+                            setSheetOpen(false); 
+                            handleStartNavigation(); 
                           }}
                         >
                           Go

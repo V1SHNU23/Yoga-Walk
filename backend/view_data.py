@@ -5,7 +5,7 @@ CONN_STR = (
     r'DRIVER={ODBC Driver 17 for SQL Server};'
     r'SERVER=139.99.183.1\SQL2019;'
     r'DATABASE=kailash_yogawalk;'
-    r'UID=solomon.s;'  # <-- Put your Username here
+    r'UID=solomon.s;'  
     r'PWD=87wbc9F_;'
 )
 
