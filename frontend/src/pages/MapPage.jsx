@@ -1051,8 +1051,8 @@ export default function MapPage() {
           // 3. Side Padding (50px): Pins sit comfortably away from the edges.
           
           const topPad = window.innerHeight * 0.10; 
-          const bottomPad = window.innerHeight * 0.60;
-          const sidePad = 50; 
+          const bottomPad = window.innerHeight * 0.50;
+          const sidePad = window.innerHeight * 0.025; 
 
           console.log("Refitting Map:", { top: topPad, bottom: bottomPad, sides: sidePad });
 
@@ -1188,6 +1188,11 @@ export default function MapPage() {
   // --- HANDLER: GENERATE JOURNEY ---
   async function handleSubmit(e) {
     e.preventDefault();
+
+    console.log("🟢 Submit button clicked!");
+    console.log("🟢 Origin:", origin);
+    console.log("🟢 Destination:", destination);
+    console.log("🟢 API Base URL:", apiBase);
     
     if (!origin || !destination) {
       if (!origin && originQuery.length > 0) {

@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom"; // --- ADD THIS IMPORT ---
+import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./styles/base.css";
 import "./styles/layout.css";
@@ -15,32 +15,33 @@ import "leaflet/dist/leaflet.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    {/* Wrap App in BrowserRouter to enable routing hooks */}
     <BrowserRouter>
       <App />
     </BrowserRouter>
   </React.StrictMode>
 );
 
-// Register Service Worker for PWA
-if ("serviceWorker" in navigator) {
+// --- SERVICE WORKER REGISTRATION ---
+// We only register the service worker in PRODUCTION.
+// This prevents the "Zombie App" issue where localhost serves old cached code.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
       .then((registration) => {
-        console.log("SW registered:", registration);
+        console.log("SW registered: ", registration);
         
-        // Check for updates periodically
+        // Check for updates every minute
         setInterval(() => {
           registration.update();
-        }, 60000); // Check every minute
+        }, 60000);
         
-        // Handle updates
+        // Handle updates when a new SW is found
         registration.addEventListener("updatefound", () => {
           const newWorker = registration.installing;
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              // New service worker available, prompt user to refresh
+              // New version available
               if (confirm("New version available! Reload to update?")) {
                 window.location.reload();
               }
@@ -48,10 +49,10 @@ if ("serviceWorker" in navigator) {
           });
         });
       })
-      .catch((err) => console.error("SW registration failed", err));
+      .catch((err) => console.error("SW registration failed: ", err));
   });
   
-  // Handle service worker updates
+  // Reload the page when the new service worker takes control
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!refreshing) {
