@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; 
-import { motion, useMotionValue, useTransform } from "framer-motion"; // Animation Lib
+import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion"; // Animation Lib
 import Card from "../components/Card.jsx";
 import AnimatedList from "../components/AnimatedList.jsx";
 import SearchIcon from "../icons/search.svg";
@@ -11,7 +11,41 @@ import BinIcon from "../icons/bin.svg";
 
 // --- CONFIG ---
 const API_BASE = "http://127.0.0.1:5000"; 
-const DURATION_OPTIONS = ["30 sec", "45 sec", "1 min", "2 min", "5 min"];
+const DURATION_OPTIONS = ["30 sec", "45 sec", "1 min", "2 min"];
+
+// --- SUB-COMPONENT: CONFIRMATION MODAL ---
+function DeleteConfirmationModal({ isOpen, onClose, onConfirm }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="libModalOverlay">
+      <motion.div 
+        className="libModalCard"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+      > 
+        <h3 className="libModalTitle">Delete Routine?</h3>
+        
+        <p className="libModalText">
+          Are you sure you want to delete this routine?
+        </p>
+        <span className="libModalWarning">
+          This action cannot be undone.
+        </span>
+
+        <div className="libModalActions">
+          <button className="libModalBtn cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="libModalBtn delete" onClick={onConfirm}>
+            Delete
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // --- SUB-COMPONENT: SWIPEABLE CARD ---
 function SwipeableRoutineCard({ routine, onClick, onDelete }) {
@@ -116,6 +150,7 @@ export default function LibPage() {
   // --- SELECTION STATE ---
   const [selectedPose, setSelectedPose] = useState(null);       
   const [selectedRoutine, setSelectedRoutine] = useState(null); 
+  const [routineToDelete, setRoutineToDelete] = useState(null); // Track item to delete
 
   // --- BUILDER STATE ---
   const [isCreating, setIsCreating] = useState(false);
@@ -246,36 +281,51 @@ export default function LibPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
-    .then(res => {
-        if(res.ok) {
-            // Refresh Data
+    .then(async (res) => {
+        // Parse error message safely
+        const data = await res.json().catch(() => ({})); 
+
+        if (res.ok) {
             fetchData();
-            // Reset UI
             setIsCreating(false);
             setDraftTitle("");
             setDraftPoses([]);
             setDraftCover(null);
             setActiveTab("routines");
         } else {
-            alert("Failed to save routine.");
+            console.error("Save Error:", data);
+            alert("Failed to save: " + (data.error || "Unknown server error"));
         }
     })
-    .catch(err => alert("Error: " + err));
+    .catch(err => {
+        console.error("Network Error:", err);
+        alert("Network Error: " + err.message);
+    });
   }
 
-  // --- DELETE ROUTINE ---
-  function handleDeleteRoutine(id) {
-    if(!confirm("Delete this routine permanently?")) return;
+  // --- DELETE LOGIC ---
+  
+  // 1. Request Deletion (Opens Modal)
+  function handleDeleteRequest(id) {
+    setRoutineToDelete(id);
+  }
+
+  // 2. Confirm Deletion (Performs API Call)
+  function confirmDelete() {
+    if (!routineToDelete) return;
 
     // Optimistic UI update
-    setRoutines(prev => prev.filter(r => r.id !== id));
+    setRoutines(prev => prev.filter(r => r.id !== routineToDelete));
 
-    fetch(`${API_BASE}/api/routines/${id}`, {
+    fetch(`${API_BASE}/api/routines/${routineToDelete}`, {
         method: "DELETE"
     }).catch(err => {
         alert("Server error deleting routine");
         fetchData(); // Revert if failed
     });
+    
+    // Close Modal
+    setRoutineToDelete(null);
   }
 
   function handleStartRoutineWalk() {
@@ -540,7 +590,7 @@ export default function LibPage() {
                           key={routine.id}
                           routine={routine}
                           onClick={setSelectedRoutine}
-                          onDelete={handleDeleteRoutine}
+                          onDelete={handleDeleteRequest} 
                        />
                     ))
                    )
@@ -590,6 +640,17 @@ export default function LibPage() {
             </>
           )}
         </div>
+
+        {/* 🟢 CONFIRMATION MODAL */}
+        <AnimatePresence>
+          {routineToDelete && (
+            <DeleteConfirmationModal 
+              isOpen={!!routineToDelete}
+              onClose={() => setRoutineToDelete(null)}
+              onConfirm={confirmDelete}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

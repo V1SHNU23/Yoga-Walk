@@ -769,3 +769,79 @@
 .libPoseCard {
   background: white; 
 }
+
+.libModalOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.libModalCard {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 24px;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.libModalTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f3d1f;
+  margin: 0 0 12px 0;
+}
+
+.libModalText {
+  font-size: 15px;
+  color: #1f3d1f;
+  margin: 0 0 4px 0; 
+}
+
+.libModalWarning {
+  display: block;
+  font-size: 13px;
+  color: #c0392b; 
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+.libModalActions {
+  display: flex;
+  gap: 12px;
+}
+
+.libModalBtn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 99px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+  background: white; 
+}
+
+.libModalBtn:active {
+  transform: scale(0.96);
+}
+
+.libModalBtn.cancel {
+  background-color: #f2f9f0; 
+  border: 1px solid #61b329; 
+  color: #1f3d1f;            
+}
+
+.libModalBtn.delete {
+  background-color: #fff5f5; 
+  border: 1px solid #c0392b; 
+  color: #c0392b;            
+}
