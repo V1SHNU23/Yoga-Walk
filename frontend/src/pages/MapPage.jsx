@@ -391,28 +391,41 @@ function TravelModeButtons({ travelMode, onToggle, isWalking }) {
 
   useEffect(() => {
     if (containerRef.current) {
+      // 1. Tell Leaflet to ignore clicks on this container
       L.DomEvent.disableClickPropagation(containerRef.current);
       L.DomEvent.disableScrollPropagation(containerRef.current);
     }
   }, []);
 
-  // If we are actively walking/navigating, we generally hide mode toggles 
-  // to reduce clutter, or we can keep them. Usually better to hide.
+  const handleModeClick = (e, mode) => {
+    // 2. Stop the event from bubbling up to the map
+    e.stopPropagation();
+    e.preventDefault(); 
+    // 3. Stop native bubbling just in case
+    if (e.nativeEvent) {
+        e.nativeEvent.stopPropagation();
+    }
+    onToggle(mode);
+  };
+
+  // If we are actively walking/navigating, hide controls
   if (isWalking) return null;
 
   return (
     <div ref={containerRef} className="travel-mode-container">
       <button
-        onClick={() => onToggle("driving")}
+        onClick={(e) => handleModeClick(e, "driving")}
         className={`mode-btn ${travelMode === "driving" ? "active" : ""}`}
         title="Car Route"
+        type="button" // Good practice to prevent form submissions
       >
         🚗
       </button>
       <button
-        onClick={() => onToggle("foot")}
+        onClick={(e) => handleModeClick(e, "foot")}
         className={`mode-btn ${travelMode === "foot" ? "active" : ""}`}
         title="Walking Route"
+        type="button"
       >
         🚶
       </button>
