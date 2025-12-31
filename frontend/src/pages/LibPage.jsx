@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; 
+import { motion, useMotionValue, useTransform } from "framer-motion"; // Animation Lib
 import Card from "../components/Card.jsx";
 import AnimatedList from "../components/AnimatedList.jsx";
 import SearchIcon from "../icons/search.svg";
@@ -7,70 +8,66 @@ import StarIcon from "../icons/star.svg";
 import StarIconFill from "../icons/star-fill.svg";
 import BackIcon from "../icons/back.svg"; 
 
-// --- IMAGES (Static Imports used for default data) ---
-import imgTadasana from "../assets/tadasana.png";
-import imgTree from "../assets/vrksasana.png";
-import imgChair from "../assets/utkatasana.png";
-import imgW1 from "../assets/Virabhadrasana one.png";
-import imgW2 from "../assets/Virabhadrasana two.png";
-
 // --- CONFIG ---
-// Removed COVER_OPTIONS
+const API_BASE = "http://127.0.0.1:5000"; 
 const DURATION_OPTIONS = ["30 sec", "45 sec", "1 min", "2 min", "5 min"];
 
-// --- DEFAULT DATA ---
-const DEFAULT_ROUTINES = [
-  {
-    id: "routine-morning",
-    title: "Morning Energy Flow",
-    description: "A 5-pose sequence to wake up your body and mind.",
-    duration: "5 min",
-    poseCount: 5,
-    coverImage: imgW1, // Kept for the default example
-    poses: [
-      {
-        id: "rt-1",
-        name: "Tadasana", 
-        duration: "1 min",
-        image: imgTadasana,
-        benefits: "Improves posture, strengthens thighs, knees, and ankles. Steadies the mind.",
-        instructions: "Stand with feet together or hip width apart, spread toes and press evenly through the feet.\n\nEngage thighs gently, lengthen the spine, relax shoulders and let arms rest by your sides with palms facing in or forward."
-      },
-      {
-        id: "rt-2",
-        name: "Vrksasana", 
-        duration: "30 sec/side",
-        image: imgTree,
-        benefits: "Improves balance and stability in the legs.",
-        instructions: "Stand tall and shift weight into one foot. Place the sole of the other foot on the inner calf or inner thigh, avoiding the knee."
-      },
-      {
-        id: "rt-3",
-        name: "Utkatasana", 
-        duration: "30 sec",
-        image: imgChair,
-        benefits: "Strengthens the ankles, thighs, calves, and spine.",
-        instructions: "Stand with feet together. Inhale raise arms overhead. Exhale bend knees and sit hips back."
-      },
-      {
-        id: "rt-4",
-        name: "Virabhadrasana I", 
-        duration: "45 sec/side",
-        image: imgW1,
-        benefits: "Stretches the chest and lungs, shoulders and neck.",
-        instructions: "Step one foot forward, bend knee. Turn back foot out. Lift arms overhead."
-      },
-      {
-        id: "rt-5",
-        name: "Virabhadrasana II", 
-        duration: "45 sec/side",
-        image: imgW2,
-        benefits: "Strengthens and stretches the legs and ankles.",
-        instructions: "Step feet wide, turn one foot out and bend front knee. Stretch arms out at shoulder height."
-      }
-    ]
-  }
-];
+// --- SUB-COMPONENT: SWIPEABLE CARD ---
+function SwipeableRoutineCard({ routine, onClick, onDelete }) {
+  const x = useMotionValue(0);
+  // Fade the card slightly as you slide it to reveal the red layer
+  const opacity = useTransform(x, [-100, 0], [1, 1]); 
+  
+  // Drag end handler: if dragged far enough, keep it open (optional logic)
+  // For now, we rely on the user seeing the red button and clicking it.
+
+  return (
+    <div className="libSwipeContainer">
+      {/* 1. BACKGROUND TRASH LAYER */}
+      <div className="libSwipeTrashLayer">
+        <button 
+           className="libSwipeTrashBtn"
+           onClick={(e) => {
+             e.stopPropagation();
+             onDelete(routine.id);
+           }}
+        >
+           🗑️
+        </button>
+      </div>
+
+      {/* 2. FOREGROUND CARD (Draggable) */}
+      <motion.div
+        style={{ x, opacity, position: 'relative', zIndex: 1, background: 'transparent' }}
+        drag="x"
+        dragConstraints={{ left: -100, right: 0 }} // Limit how far it slides
+        dragElastic={0.1}
+        onClick={() => onClick(routine)}
+      >
+        <Card className="libPoseCard" style={{ margin: 0, border: 'none' }}>
+           <div className="libPoseRow">
+              <div className="libPoseThumb" style={{ background: '#e9f7dd' }}>
+                 {routine.coverImage ? (
+                    <img 
+                      src={routine.coverImage} 
+                      alt="Cover" 
+                      style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px'}} 
+                    />
+                 ) : (
+                    <span className="libPoseThumbEmoji">📋</span>
+                 )}
+              </div>
+              <div className="libPoseText">
+                 <div className="libPoseName">{routine.title}</div>
+                 <div className="libPoseMeta">{routine.poseCount} poses • {routine.duration}</div>
+              </div>
+              <div className="libPoseChevron">›</div>
+           </div>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
 
 function LibrarySearch({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -117,39 +114,45 @@ export default function LibPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftPoses, setDraftPoses] = useState([]);
-  const [draftCover, setDraftCover] = useState(null); // Start with no cover
+  const [draftCover, setDraftCover] = useState(null); 
 
-  // 1. Fetch Poses & Load Local Routines
+  // --- INITIAL LOAD ---
   useEffect(() => {
-    // Load local routines first
-    const saved = localStorage.getItem("my_custom_routines");
-    if (saved) {
-      setRoutines([...DEFAULT_ROUTINES, ...JSON.parse(saved)]);
-    } else {
-      setRoutines(DEFAULT_ROUTINES);
-    }
+    fetchData();
+  }, []);
 
-    // Fetch DB Poses
-    fetch('http://127.0.0.1:5000/api/poses')
+  function fetchData() {
+    setLoading(true);
+
+    // 1. Fetch Poses
+    fetch(`${API_BASE}/api/poses`)
       .then(res => res.json())
       .then(data => {
         const dbPoses = data.map(pose => ({
           id: pose.id,
           name: pose.name,
-          duration: "30 sec", // Default DB duration
+          duration: "30 sec", // Default if not in DB
           image: pose.animation_url, 
           favorite: false,
           instructions: pose.instructions,
           benefits: pose.benefits
         }));
         setPoses(dbPoses);
+      })
+      .catch(err => console.error("Error fetching poses:", err));
+
+    // 2. Fetch Routines
+    fetch(`${API_BASE}/api/routines`)
+      .then(res => res.json())
+      .then(data => {
+        setRoutines(data);
         setLoading(false);
       })
       .catch(err => {
-        console.error("Error fetching poses:", err);
+        console.error("Error fetching routines:", err);
         setLoading(false);
       });
-  }, []);
+  }
 
   function toggleFavorite(id) {
     setPoses((prev) =>
@@ -160,22 +163,17 @@ export default function LibPage() {
   }
 
   // --- BUILDER LOGIC ---
-  
-  // NEW: Handle file input change
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Basic validation to ensure it's an image
     if (!file.type.startsWith('image/')) {
         alert('Please select an image file.');
         return;
     }
 
-    // Convert file to Base64 string for local storage persistence
     const reader = new FileReader();
     reader.onloadend = () => {
-      // reader.result contains the data:image/png;base64,... string
       setDraftCover(reader.result);
     };
     reader.readAsDataURL(file);
@@ -204,6 +202,7 @@ export default function LibPage() {
     }));
   }
 
+  // --- SAVE TO BACKEND ---
   function handleSaveRoutine() {
     if (!draftTitle.trim()) {
       alert("Please name your routine.");
@@ -214,36 +213,62 @@ export default function LibPage() {
       return;
     }
 
+    // Calculate total duration roughly
     const totalMinutes = draftPoses.reduce((acc, p) => {
        if (p.duration.includes("min")) return acc + parseInt(p.duration);
-       return acc + 0.5; 
+       return acc + 0.5; // 30 sec is 0.5 min
     }, 0);
+    const calculatedDuration = `${Math.ceil(totalMinutes)} min`;
 
-    const newRoutine = {
-      id: `custom-${Date.now()}`,
-      title: draftTitle,
-      description: `Custom ${draftPoses.length}-pose sequence.`,
-      duration: `${Math.ceil(totalMinutes)} min`, 
-      poseCount: draftPoses.length,
-      poses: draftPoses,
-      coverImage: draftCover, // Save the uploaded base64 image
-      isCustom: true 
+    // Construct Payload
+    const payload = {
+        title: draftTitle,
+        description: `Custom ${draftPoses.length}-pose sequence`,
+        duration: calculatedDuration,
+        coverImage: draftCover, // Sends Base64 string
+        poses: draftPoses.map(p => ({
+            id: p.id,
+            name: p.name,
+            duration: p.duration
+        }))
     };
 
-    const updatedRoutines = [...routines, newRoutine];
-    setRoutines(updatedRoutines);
-    
-    const customOnly = updatedRoutines.filter(r => r.isCustom);
-    // Warning: Base64 images can be large and might hit localStorage limits eventually.
-    // For a prototype/MVP, this is acceptable.
-    localStorage.setItem("my_custom_routines", JSON.stringify(customOnly));
+    // Send to API
+    fetch(`${API_BASE}/api/routines`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+        if(res.ok) {
+            // Refresh Data
+            fetchData();
+            // Reset UI
+            setIsCreating(false);
+            setDraftTitle("");
+            setDraftPoses([]);
+            setDraftCover(null);
+            setActiveTab("routines");
+        } else {
+            alert("Failed to save routine.");
+        }
+    })
+    .catch(err => alert("Error: " + err));
+  }
 
-    // Reset UI
-    setIsCreating(false);
-    setDraftTitle("");
-    setDraftPoses([]);
-    setDraftCover(null);
-    setActiveTab("routines");
+  // --- DELETE ROUTINE ---
+  function handleDeleteRoutine(id) {
+    if(!confirm("Delete this routine permanently?")) return;
+
+    // Optimistic UI update
+    setRoutines(prev => prev.filter(r => r.id !== id));
+
+    fetch(`${API_BASE}/api/routines/${id}`, {
+        method: "DELETE"
+    }).catch(err => {
+        alert("Server error deleting routine");
+        fetchData(); // Revert if failed
+    });
   }
 
   function handleStartRoutineWalk() {
@@ -366,7 +391,6 @@ export default function LibPage() {
                  <div className="libCoverSection">
                     <span className="libCoverLabel">Cover Image</span>
                     <div className="libCoverUploadContainer">
-                        {/* Hidden file input */}
                         <input 
                            type="file" 
                            id="coverUploadInput" 
@@ -376,13 +400,11 @@ export default function LibPage() {
                         />
                         
                         {!draftCover ? (
-                           // State 1: No image -> Show Upload Box
                            <label htmlFor="coverUploadInput" className="libCoverUploadBox">
                               <div className="libCoverUploadIcon">📷</div>
-                              <div className="libCoverUploadText">Tap to upload from device</div>
+                              <div className="libCoverUploadText">Tap to upload</div>
                            </label>
                         ) : (
-                           // State 2: Image selected -> Show Preview & Change Button
                            <div className="libCoverPreviewWrapper">
                                <img src={draftCover} alt="Cover Preview" className="libCoverPreviewImg" />
                                <label htmlFor="coverUploadInput" className="libCoverChangeBtn">
@@ -407,7 +429,6 @@ export default function LibPage() {
                              </div>
                              <div className="libDraftItemName">{p.name}</div>
                              
-                             {/* DURATION TOGGLE */}
                              <button 
                                 className="libDraftItemTimeBtn"
                                 onClick={() => handleCycleDuration(p.uniqueId)}
@@ -436,7 +457,7 @@ export default function LibPage() {
                   items={visiblePoses}
                   showGradients={false}
                   renderItem={(pose) => (
-                    <div onClick={() => handleAddToDraft(pose)} style={{ cursor: 'pointer' }}>
+                    <div onClick={() => handleAddToDraft(pose)} style={{ cursor: 'pointer', marginBottom: '10px' }}>
                       <Card className="libPoseCard" style={{ padding: '10px 16px' }}>
                         <div className="libPoseRow">
                           <div className="libPoseThumb" style={{ width: '48px', height: '48px' }}>
@@ -505,33 +526,18 @@ export default function LibPage() {
                   </div>
 
                   <h3 className="libSectionTitle">My Routines</h3>
-                  <AnimatedList
-                    items={routines}
-                    showGradients={true}
-                    renderItem={(routine) => (
-                      <div onClick={() => setSelectedRoutine(routine)} style={{ cursor: 'pointer' }}>
-                         <Card className="libPoseCard" style={{ marginBottom: '12px' }}>
-                            <div className="libPoseRow">
-                               <div className="libPoseThumb">
-                                  {/* USE THE SELECTED COVER IMAGE HERE */}
-                                  {routine.coverImage ? (
-                                     <img src={routine.coverImage} alt="Cover" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
-                                  ) : routine.poses[0]?.image ? (
-                                     <img src={routine.poses[0].image} alt="Routine" />
-                                  ) : (
-                                     <span className="libPoseThumbEmoji">📝</span>
-                                  )}
-                               </div>
-                               <div className="libPoseText">
-                                  <div className="libPoseName">{routine.title}</div>
-                                  <div className="libPoseMeta">{routine.poseCount} poses • {routine.duration}</div>
-                               </div>
-                               <div className="libPoseChevron">›</div>
-                            </div>
-                         </Card>
-                      </div>
-                    )}
-                  />
+                  {loading ? <p className="libEmptyState">Loading routines...</p> : 
+                   routines.length === 0 ? <p className="libEmptyState">No routines yet.</p> : (
+                    routines.map((routine) => (
+                       <SwipeableRoutineCard 
+                          key={routine.id}
+                          routine={routine}
+                          onClick={setSelectedRoutine}
+                          onDelete={handleDeleteRoutine}
+                       />
+                    ))
+                   )
+                  }
                 </>
               )}
 

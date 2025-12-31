@@ -48,3 +48,14 @@ VALUES
 (2.5, 30, 160, 3, 3300, 'Test walk 1'),
 (5.0, 60, 320, 5, 6600, 'Longer morning walk');
 GO
+
+-- 5. Create Routines Table
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Routines' and xtype='U')
+BEGIN
+    CREATE TABLE Routines (
+        RoutineID INT IDENTITY(1,1) PRIMARY KEY,
+        Name NVARCHAR(100) NOT NULL,
+        CreatedAt DATETIME DEFAULT GETDATE()
+    );
+END
+GO

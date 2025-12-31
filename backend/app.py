@@ -128,7 +128,7 @@ def create_journey():
 
     return jsonify({"route": [], "checkpoints": checkpoints})
 
-# --- 🟢 CRITICAL UPDATE: WALK COMPLETE (Saves Reflections) ---
+# --- WALK COMPLETE (Saves Reflections) ---
 @app.route("/api/walk_complete", methods=["POST"])
 def walk_complete():
     print("📥 Receiving Walk Data...") 
@@ -141,13 +141,11 @@ def walk_complete():
         steps_est = int(distance * 1250)
         calories_est = int(distance * 60)
         
-        # 1. Extract Reflections from Frontend
         reflections = data.get("reflections_data", [])
 
         conn = get_db()
         cursor = conn.cursor()
         
-        # 2. Insert Main Walk Data
         SQL_INSERT = """
             INSERT INTO WalkHistory 
             (DistanceKm, DurationMinutes, CaloriesBurned, PosesCompleted, StepsEstimated, Notes)
@@ -159,7 +157,6 @@ def walk_complete():
         row = cursor.fetchone()
         walk_id = row[0] if row else 0
 
-        # 3. Insert Reflections into WalkReflections Table
         if reflections and walk_id:
             print(f"   📝 Saving {len(reflections)} reflections...")
             reflection_rows = []
@@ -183,10 +180,8 @@ def walk_complete():
         print(f"❌ Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# --- 🟢 CRITICAL UPDATE: NEW ENDPOINT (Fetches Reflections) ---
 @app.route("/api/walk/<int:walk_id>/reflections", methods=["GET"])
 def get_walk_reflections(walk_id):
-    """Fetches the Q&A for a specific walk."""
     conn = get_db()
     if not conn: return jsonify({"error": "Database not connected"}), 500
     try:
@@ -224,5 +219,114 @@ def get_walk_history():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- ROUTINE MANAGEMENT ENDPOINTS ---
+
+@app.route("/api/routines", methods=["GET"])
+def get_routines():
+    conn = get_db()
+    if not conn: return jsonify({"error": "Database not connected"}), 500
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Fetch all Routines
+        cursor.execute("SELECT RoutineID, Name, Description, Duration, CoverImage FROM Routines ORDER BY CreatedAt DESC")
+        routines_db = cursor.fetchall()
+        
+        routines_list = []
+        
+        for r in routines_db:
+            routine_id = r.RoutineID
+            
+            # 2. For each routine, fetch its poses (ordered by index)
+            cursor.execute("""
+                SELECT PoseID, PoseName, Duration 
+                FROM RoutinePoses 
+                WHERE RoutineID = ? 
+                ORDER BY OrderIndex ASC
+            """, routine_id)
+            
+            poses_data = []
+            for p in cursor.fetchall():
+                poses_data.append({
+                    "id": p.PoseID,
+                    "name": p.PoseName,
+                    "duration": p.Duration
+                })
+
+            routines_list.append({
+                "id": routine_id,
+                "title": r.Name,
+                "description": r.Description or "Custom Routine",
+                "duration": r.Duration or "5 min",
+                "coverImage": r.CoverImage,
+                "poses": poses_data,
+                "poseCount": len(poses_data),
+                "isCustom": True
+            })
+            
+        return jsonify(routines_list)
+    except Exception as e:
+        print(f"Error fetching routines: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/routines", methods=["POST"])
+def create_routine():
+    data = request.get_json()
+    
+    # Extract Data from Frontend
+    name = data.get("title")
+    desc = data.get("description", "")
+    duration = data.get("duration", "5 min")
+    cover_image = data.get("coverImage") # This will be a large Base64 string
+    poses = data.get("poses", [])
+
+    if not name: return jsonify({"error": "Name required"}), 400
+    
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Insert the Main Routine
+        cursor.execute("""
+            INSERT INTO Routines (Name, Description, Duration, CoverImage) 
+            VALUES (?, ?, ?, ?)
+        """, name, desc, duration, cover_image)
+        
+        # 2. Get the new Routine ID
+        cursor.execute("SELECT @@IDENTITY")
+        row = cursor.fetchone()
+        if not row:
+             return jsonify({"error": "Failed to retrieve new ID"}), 500
+        routine_id = int(row[0])
+
+        # 3. Insert all the Poses for this routine
+        for index, pose in enumerate(poses):
+            # We save PoseID if available, but also the Name/Duration as backup
+            cursor.execute("""
+                INSERT INTO RoutinePoses (RoutineID, PoseID, PoseName, Duration, OrderIndex)
+                VALUES (?, ?, ?, ?, ?)
+            """, routine_id, pose.get('id'), pose.get('name'), pose.get('duration'), index)
+            
+        conn.commit()
+        return jsonify({"message": "Routine created", "id": routine_id}), 201
+    except Exception as e:
+        print(f"Error creating routine: {e}")
+        if conn: conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/routines/<int:id>", methods=["DELETE"])
+def delete_routine(id):
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        # Manually delete poses first (just in case CASCADE isn't set perfectly on DB side)
+        cursor.execute("DELETE FROM RoutinePoses WHERE RoutineID = ?", id)
+        # Delete the routine
+        cursor.execute("DELETE FROM Routines WHERE RoutineID = ?", id)
+        conn.commit()
+        return jsonify({"message": "Routine deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)  # Allow network access for mobile testing
+    app.run(debug=True, host='0.0.0.0', port=5000)

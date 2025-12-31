@@ -680,3 +680,43 @@
   flex-direction: column;
   align-items: center;
 }
+/* --- SWIPE TO DELETE STYLES --- */
+
+.libSwipeContainer {
+  position: relative;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  /* overflow: hidden;  <-- Optional: keeps corners rounded during swipe */
+}
+
+.libSwipeTrashLayer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  background-color: #c0392b; /* Danger Red */
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 24px;
+  box-sizing: border-box;
+  z-index: 0;
+}
+
+.libSwipeTrashBtn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: transform 0.2s;
+}
+
+.libSwipeTrashBtn:active {
+  transform: scale(0.9);
+}
