@@ -686,7 +686,7 @@
   position: relative;
   margin-bottom: 12px;
   border-radius: 16px;
-  /* overflow: hidden;  <-- Optional: keeps corners rounded during swipe */
+  overflow: hidden;  
 }
 
 .libSwipeTrashLayer {
@@ -719,4 +719,53 @@
 
 .libSwipeTrashBtn:active {
   transform: scale(0.9);
+}
+
+.libSwipeContainer {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.libSwipePillLayer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 80px; 
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; 
+  z-index: 0;
+}
+
+.libSwipeNarrowPillBtn {
+  background-color: white; 
+  border: 1px solid #c0392b;
+  color: #c0392b;
+  width: 76px; 
+  height: 100%; 
+  border-radius: 24px; 
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(192, 57, 43, 0.15);
+  flex-shrink: 0;
+  box-sizing: border-box; 
+  transition: all 0.2s ease;
+}
+
+.libSwipeNarrowPillBtn:active {
+  background-color: #fadbd8; 
+  transform: scale(0.95);
+}
+
+.libSwipeNarrowPillBtn img {
+  display: block;
+  pointer-events: none; 
+}
+
+.libPoseCard {
+  background: white; 
 }

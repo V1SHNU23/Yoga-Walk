@@ -7,6 +7,7 @@ import SearchIcon from "../icons/search.svg";
 import StarIcon from "../icons/star.svg";
 import StarIconFill from "../icons/star-fill.svg";
 import BackIcon from "../icons/back.svg"; 
+import BinIcon from "../icons/bin.svg";
 
 // --- CONFIG ---
 const API_BASE = "http://127.0.0.1:5000"; 
@@ -15,36 +16,42 @@ const DURATION_OPTIONS = ["30 sec", "45 sec", "1 min", "2 min", "5 min"];
 // --- SUB-COMPONENT: SWIPEABLE CARD ---
 function SwipeableRoutineCard({ routine, onClick, onDelete }) {
   const x = useMotionValue(0);
-  // Fade the card slightly as you slide it to reveal the red layer
-  const opacity = useTransform(x, [-100, 0], [1, 1]); 
   
-  // Drag end handler: if dragged far enough, keep it open (optional logic)
-  // For now, we rely on the user seeing the red button and clicking it.
+  // ANIMATION:
+  // 1. Scale: The pill pops up (0.5 -> 1) as you drag
+  const scale = useTransform(x, [-10, -50], [0.5, 1]);
+  
+  // 2. Opacity: Hides completely when closed to prevent bleed-through
+  const opacity = useTransform(x, [0, -10], [0, 1]);
 
   return (
     <div className="libSwipeContainer">
-      {/* 1. BACKGROUND TRASH LAYER */}
-      <div className="libSwipeTrashLayer">
-        <button 
-           className="libSwipeTrashBtn"
+      {/* 1. BACKGROUND LAYER: The Narrow Red Pill */}
+      <div className="libSwipePillLayer">
+        <motion.button 
+           className="libSwipeNarrowPillBtn"
+           style={{ scale, opacity }}
            onClick={(e) => {
              e.stopPropagation();
              onDelete(routine.id);
            }}
         >
-           🗑️
-        </button>
+           <img src={BinIcon} alt="Delete" style={{ width: '24px', height: '24px' }} />
+        </motion.button>
       </div>
 
-      {/* 2. FOREGROUND CARD (Draggable) */}
+      {/* 2. FOREGROUND CARD */}
       <motion.div
-        style={{ x, opacity, position: 'relative', zIndex: 1, background: 'transparent' }}
+        style={{ x, position: 'relative', zIndex: 1 }}
         drag="x"
-        dragConstraints={{ left: -100, right: 0 }} // Limit how far it slides
+        // 🟢 CONFIG: Drag -80px. 
+        // Pill is 60px wide. This leaves a 20px visible gap.
+        dragConstraints={{ left: -80, right: 0 }} 
         dragElastic={0.1}
         onClick={() => onClick(routine)}
       >
-        <Card className="libPoseCard" style={{ margin: 0, border: 'none' }}>
+        {/* Added background white so it's opaque against the red pill */}
+        <Card className="libPoseCard" style={{ margin: 0, background: 'white' }}>
            <div className="libPoseRow">
               <div className="libPoseThumb" style={{ background: '#e9f7dd' }}>
                  {routine.coverImage ? (
