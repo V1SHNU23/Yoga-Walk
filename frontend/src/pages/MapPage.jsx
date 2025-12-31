@@ -27,6 +27,7 @@ const defaultCenter = {
 };
 
 const WALK_SPEED_KMH = 5;
+const DRIVE_SPEED_KMH = 40; // Est. city driving speed for duration calc
 const STEP_ADVANCE_THRESHOLD = 20;
 
 // --- UTILITY FUNCTIONS ---
@@ -382,6 +383,43 @@ function VoiceToggleButton({ voiceEnabled, toggleVoice, isWalking }) {
   );
 }
 
+// --------------------------------------------------------
+// NEW: Travel Mode Buttons (Car vs Person)
+// --------------------------------------------------------
+function TravelModeButtons({ travelMode, onToggle, isWalking }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      L.DomEvent.disableClickPropagation(containerRef.current);
+      L.DomEvent.disableScrollPropagation(containerRef.current);
+    }
+  }, []);
+
+  // If we are actively walking/navigating, we generally hide mode toggles 
+  // to reduce clutter, or we can keep them. Usually better to hide.
+  if (isWalking) return null;
+
+  return (
+    <div ref={containerRef} className="travel-mode-container">
+      <button
+        onClick={() => onToggle("driving")}
+        className={`mode-btn ${travelMode === "driving" ? "active" : ""}`}
+        title="Car Route"
+      >
+        🚗
+      </button>
+      <button
+        onClick={() => onToggle("foot")}
+        className={`mode-btn ${travelMode === "foot" ? "active" : ""}`}
+        title="Walking Route"
+      >
+        🚶
+      </button>
+    </div>
+  );
+}
+
 function makeCheckpointIcon(number) {
   return L.divIcon({
     className: "checkpoint-number",
@@ -436,6 +474,9 @@ export default function MapPage() {
   const [checkpoints, setCheckpoints] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
+
+  // --- TRAVEL MODE STATE (NEW) ---
+  const [travelMode, setTravelMode] = useState("foot");
 
   // --- ROUTINE & THEME STATE ---
   const [activeRoutine, setActiveRoutine] = useState(null);
@@ -657,6 +698,7 @@ export default function MapPage() {
             if (parsed.destinationLabel) setDestinationLabel(parsed.destinationLabel);
             if (parsed.voiceEnabled !== undefined) setVoiceEnabled(parsed.voiceEnabled);
             if (parsed.reflections) setReflections(parsed.reflections);
+            if (parsed.travelMode) setTravelMode(parsed.travelMode); // RESTORE MODE
         } catch (e) {
             console.error("Failed to restore walk state", e);
         }
@@ -685,13 +727,14 @@ export default function MapPage() {
             originLabel,
             destinationLabel,
             voiceEnabled,
-            reflections 
+            reflections,
+            travelMode // SAVE MODE
         };
         localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
     } else {
         localStorage.removeItem("activeWalkState");
     }
-  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel, voiceEnabled, reflections]);
+  }, [origin, destination, routes, checkpoints, checkpointPositions, isWalking, currentStep, activeRouteIndex, visitedIndices, selectionStep, sheetOpen, originLabel, destinationLabel, voiceEnabled, reflections, travelMode]);
 
   const handleSlideScroll = () => {
     if (slidesRef.current) {
@@ -1028,12 +1071,10 @@ export default function MapPage() {
   }
 
   // --- NEW: RE-FIT FUNCTION (EXPOSED FOR BUTTON) ---
-  // This extracts the "Apple Maps" style centering logic so you can trigger it manually
   function fitMapToRoute(customRoutes = null) {
     const routesToUse = customRoutes || routes;
     
     if (map && routesToUse.length > 0 && origin && destination) {
-        // Collect coords
         const allCoords = [];
         routesToUse.forEach((route) => {
           if (route.coords) allCoords.push(...route.coords);
@@ -1043,25 +1084,18 @@ export default function MapPage() {
         if (allCoords.length > 0) {
           const bounds = L.latLngBounds(allCoords);
           
-          map.invalidateSize(); // Ensure map knows its container dimensions
+          map.invalidateSize(); 
 
-          // APPLE MAPS STYLE PADDING
-          // 1. Top Padding (10%): Keeps the route clear of top nav.
-          // 2. Bottom Padding (60%): Reserves bottom 60% for the white card.
-          // 3. Side Padding (50px): Pins sit comfortably away from the edges.
-          
           const topPad = window.innerHeight * 0.10; 
           const bottomPad = window.innerHeight * 0.50;
           const sidePad = window.innerHeight * 0.025; 
-
-          console.log("Refitting Map:", { top: topPad, bottom: bottomPad, sides: sidePad });
 
           map.fitBounds(bounds, {
             paddingTopLeft: [sidePad, topPad],
             paddingBottomRight: [sidePad, bottomPad],
             maxZoom: 18, 
             animate: true,
-            duration: 0.8, // FASTER ANIMATION
+            duration: 0.8, 
           });
         }
     }
@@ -1119,9 +1153,16 @@ export default function MapPage() {
     setSheetOpen(true);
   }
 
-  async function fetchSingleRoute(pointList) {
+  // --- UPDATED: Dynamic Routing (Foot vs Car) ---
+  async function fetchSingleRoute(pointList, mode) {
     const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
-    const url = `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+    
+    // Switch URL based on mode
+    const profile = mode === 'driving' ? 'driving' : 'foot';
+    const speed = mode === 'driving' ? DRIVE_SPEED_KMH : WALK_SPEED_KMH;
+
+    const url = `https://router.project-osrm.org/route/v1/${profile}/${coordString}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+    
     const res = await fetch(url);
     if (!res.ok) throw new Error("Could not get route");
     const data = await res.json();
@@ -1130,14 +1171,29 @@ export default function MapPage() {
     return data.routes.map(route => {
         const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
         const distance = route.distance;
-        const walkDurationSeconds = (distance * 3.6) / WALK_SPEED_KMH;
+        
+        // Calculate duration based on mode speed
+        const durationSeconds = (distance * 3.6) / speed;
+        
         const steps = route.legs[0].steps.map(step => {
           const stepGeometry = step.geometry?.coordinates || [];
           const stepCoords = stepGeometry.map(([lng, lat]) => ({ lat, lng }));
+          
+          let instructionText = "";
+          // Customize instructions based on mode
+          if (mode === 'foot') {
+              instructionText = step.maneuver.type === 'depart' 
+                ? `Start walking ${step.maneuver.modifier || 'forward'} on ${step.name || 'path'}`
+                : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'along ' + step.name : ''}`;
+          } else {
+              // Driving instructions (default OSRM style)
+              instructionText = step.maneuver.type === 'depart' 
+                ? `Drive ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
+                : `Turn ${step.maneuver.modifier || ''} onto ${step.name || 'road'}`;
+          }
+
           return {
-            instruction: step.maneuver.type === 'depart' 
-              ? `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
-              : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'on ' + step.name : ''}`,
+            instruction: instructionText,
             distance: step.distance,
             maneuver: step.maneuver,
             name: step.name,
@@ -1148,16 +1204,16 @@ export default function MapPage() {
             geometry: stepCoords 
           };
         });
-        return { coords, distance, duration: walkDurationSeconds, steps };
+        return { coords, distance, duration: durationSeconds, steps };
     });
   }
 
-  async function fetchRoutes(originPoint, destinationPoint) {
+  async function fetchRoutes(originPoint, destinationPoint, mode) {
     const routesList = [];
     const timestamp = Date.now(); 
     let idCounter = 0;
     try {
-      const directs = await fetchSingleRoute([originPoint, destinationPoint]);
+      const directs = await fetchSingleRoute([originPoint, destinationPoint], mode);
       directs.forEach(route => {
           routesList.push({ id: `${timestamp}-${idCounter++}`, ...route });
       });
@@ -1175,7 +1231,7 @@ export default function MapPage() {
     for (const via of viaCandidates) {
       if (routesList.length >= 6) break;
       try {
-        const viaRoutes = await fetchSingleRoute([originPoint, via, destinationPoint]);
+        const viaRoutes = await fetchSingleRoute([originPoint, via, destinationPoint], mode);
         viaRoutes.forEach(route => {
              routesList.push({ id: `${timestamp}-${idCounter++}`, ...route });
         });
@@ -1186,13 +1242,11 @@ export default function MapPage() {
   }
 
   // --- HANDLER: GENERATE JOURNEY ---
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(e, customMode = null) {
+    if (e) e.preventDefault();
+    const modeToUse = customMode || travelMode; // Allow override for immediate toggle
 
-    console.log("🟢 Submit button clicked!");
-    console.log("🟢 Origin:", origin);
-    console.log("🟢 Destination:", destination);
-    console.log("🟢 API Base URL:", apiBase);
+    console.log("🟢 Finding Routes. Mode:", modeToUse);
     
     if (!origin || !destination) {
       if (!origin && originQuery.length > 0) {
@@ -1209,7 +1263,9 @@ export default function MapPage() {
     setErrorMsg("");
 
     try {
-      const routeOptions = await fetchRoutes(origin, destination);
+      // Pass the mode to fetchRoutes
+      const routeOptions = await fetchRoutes(origin, destination, modeToUse);
+      
       setRoutes(routeOptions);
       setActiveRouteIndex(0);
       setShowRouteSelection(true); 
@@ -1217,8 +1273,7 @@ export default function MapPage() {
 
       const selectedRoute = routeOptions[0];
       const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
-      // Removed updateCheckpointPositionsForRoute here to prevent ghost markers
-
+      
       const payload = {
         origin,
         destination,
@@ -1238,7 +1293,6 @@ export default function MapPage() {
       const data = await res.json();
       let finalCheckpoints = data.checkpoints || [];
       
-      // Update positions ONLY now that we have data
       updateCheckpointPositionsForRoute(selectedRoute, countToUse);
 
       if (activeRoutine && activeRoutine.poses.length > 0) {
@@ -1302,7 +1356,6 @@ export default function MapPage() {
       
       setSheetOpen(true);
       
-      // Use the helper to fit map after a short delay
       setTimeout(() => {
         fitMapToRoute(routeOptions);
       }, 300);
@@ -1310,13 +1363,23 @@ export default function MapPage() {
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || "Failed to find route");
-      // Ensure we clean up if failed
       setCheckpoints([]);
       setCheckpointPositions([]);
     } finally {
       setLoading(false);
     }
   }
+
+  // --- NEW: Handle Mode Toggle Click ---
+  const handleModeToggle = (newMode) => {
+    if (newMode === travelMode) return;
+    setTravelMode(newMode);
+    
+    // If we already have points, refresh the route immediately
+    if (origin && destination) {
+        handleSubmit(null, newMode);
+    }
+  };
 
   function handleStartNavigation() {
     if (routes.length > 0 && routes[activeRouteIndex]) {
@@ -1333,7 +1396,7 @@ export default function MapPage() {
         const targetZoom = 18;
         map.flyTo(userLocation, targetZoom, {
           animate: true,
-          duration: 1.0 // FASTER FLY-IN
+          duration: 1.0 
         });
         setTimeout(() => {
             setIsZooming(false);
@@ -1431,6 +1494,7 @@ export default function MapPage() {
     setActiveRoutine(null);
     setShowRouteSelection(false); 
     setShowDirections(false); 
+    setTravelMode("foot"); // Reset mode to default
 
     if (map && userLocation) {
         map.flyTo(userLocation, 15, { animate: true });
@@ -1550,7 +1614,7 @@ export default function MapPage() {
           center={userLocation || defaultCenter}
           zoom={15}
           zoomSnap={0.1} 
-          wheelPxPerZoomLevel={30} // KEY FIX: Faster scroll zoom on desktop
+          wheelPxPerZoomLevel={30} 
           zoomControl={!isWalking}
           className={isWalking ? "mapContainer mapContainer-walking" : "mapContainer"}
         >
@@ -1563,6 +1627,7 @@ export default function MapPage() {
           
           <MapViewTracker onZoomChange={handleZoomChange} />
           
+          {/* MAP CONTROLS */}
           <UserLocationButton 
             userLocation={userLocation} 
             setHeading={setHeading} 
@@ -1571,6 +1636,11 @@ export default function MapPage() {
           <VoiceToggleButton 
             voiceEnabled={voiceEnabled} 
             toggleVoice={() => setVoiceEnabled(!voiceEnabled)} 
+            isWalking={isWalking}
+          />
+          <TravelModeButtons 
+            travelMode={travelMode}
+            onToggle={handleModeToggle}
             isWalking={isWalking}
           />
 
@@ -1593,13 +1663,9 @@ export default function MapPage() {
               icon={makeCheckpointIcon(idx + 1)}
               eventHandlers={{
                 click: () => {
-                  console.log("Marker clicked. Index:", idx);
-                  console.log("Checkpoints data:", checkpoints);
                   const cpData = checkpoints[idx];
                   if (cpData) {
                     setSelectedCheckpoint({ ...cpData, index: idx + 1 });
-                  } else {
-                    console.warn("No data for this checkpoint index");
                   }
                 },
               }}
@@ -1903,7 +1969,6 @@ export default function MapPage() {
               }}
             >
               <span className="mapCheckpointSummaryText">{sheetSummaryText}</span>
-              {/* REFRESH BUTTON */}
               <button
                 onClick={(e) => {
                     e.stopPropagation();

@@ -1383,3 +1383,54 @@
   margin-top: 20px;
   text-align: center;
 }
+
+/* =========================================
+   TRAVEL MODE TOGGLE (Car vs Walker)
+   ========================================= */
+
+.travel-mode-container {
+  position: absolute;
+  top: 140px; /* Positioned below the Voice Toggle (which is at 80px) */
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mode-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.8;
+}
+
+.mode-btn:hover {
+  transform: scale(1.05);
+  opacity: 1;
+  background: #ffffff;
+}
+
+.mode-btn.active {
+  background: #61b329;
+  border: 2px solid #4a8c20;
+  opacity: 1;
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(97, 179, 41, 0.4);
+}
+
+/* Ensure emoji stays sharp */
+.mode-btn img {
+  pointer-events: none;
+}
