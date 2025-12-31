@@ -12,13 +12,13 @@
 
 .app-inner {
   width: 430px;
-  height: 100%;           /* NEW: fill .app-shell */
-  max-height: 100vh;      /* keep it within the screen */
+  height: 100%;           
+  max-height: 100vh;      
   background: white;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
   transform: none !important;
   margin: 0 auto;
-  overflow: hidden;       /* prevents inner content from overflowing out */
+  overflow: hidden;       
 }
 
 .appRoot {
@@ -50,4 +50,23 @@
   margin: 0 auto;
   padding: 0 24px;
   box-sizing: border-box;
+}
+
+.appLayout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;      
+  width: 100%;
+  overflow: hidden;  
+  background-color: #f4f4f4; 
+  position: relative;
+}
+
+.mainContent {
+  flex: 1; 
+  position: relative;
+  width: 100%;
+  overflow: hidden; 
+  display: flex;
+  flex-direction: column;
 }

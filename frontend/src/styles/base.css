@@ -1,10 +1,31 @@
 /* =========================================
    BASE & RESET
    ========================================= */
-body {
+
+/* 1. Force the root container to be exactly the viewport height */
+html, body, #root {
+  height: 100%;
+  width: 100%;
   margin: 0;
+  padding: 0;
+  overflow: hidden; /* CRITICAL: Prevents the whole page from scrolling */
+  overscroll-behavior: none; /* Prevents pull-to-refresh bounce on mobile */
+  position: fixed; /* Locks the body in place to stop address bar resizing */
+  top: 0;
+  left: 0;
+}
+
+/* 2. Standardize box sizing so padding doesn't add width */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 3. Base body settings */
+body {
   font-family: system-ui, Arial, sans-serif;
-  overflow: hidden;
+  background-color: #f4f4f4;
+  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
 }
 
 section {
@@ -31,6 +52,9 @@ button {
   border-radius: 20px;
   font-size: 14px;
   cursor: pointer;
+  /* Prevent text selection on buttons for app-like feel */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled {
@@ -49,8 +73,8 @@ ul {
   padding: 18px 20px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
   width: 100%;
+  /* box-sizing is handled globally now, but keeping it explicit is fine */
   box-sizing: border-box;
-  -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
 }
 

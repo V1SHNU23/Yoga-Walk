@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; 
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion"; // Animation Lib
+import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion"; 
 import Card from "../components/Card.jsx";
 import AnimatedList from "../components/AnimatedList.jsx";
 import SearchIcon from "../icons/search.svg";
@@ -8,6 +8,7 @@ import StarIcon from "../icons/star.svg";
 import StarIconFill from "../icons/star-fill.svg";
 import BackIcon from "../icons/back.svg"; 
 import BinIcon from "../icons/bin.svg";
+import TickIcon from "../icons/tick.svg"; 
 
 // --- CONFIG ---
 const API_BASE = "http://127.0.0.1:5000"; 
@@ -52,10 +53,7 @@ function SwipeableRoutineCard({ routine, onClick, onDelete }) {
   const x = useMotionValue(0);
   
   // ANIMATION:
-  // 1. Scale: The pill pops up (0.5 -> 1) as you drag
   const scale = useTransform(x, [-10, -50], [0.5, 1]);
-  
-  // 2. Opacity: Hides completely when closed to prevent bleed-through
   const opacity = useTransform(x, [0, -10], [0, 1]);
 
   return (
@@ -78,13 +76,10 @@ function SwipeableRoutineCard({ routine, onClick, onDelete }) {
       <motion.div
         style={{ x, position: 'relative', zIndex: 1 }}
         drag="x"
-        // 🟢 CONFIG: Drag -80px. 
-        // Pill is 60px wide. This leaves a 20px visible gap.
         dragConstraints={{ left: -80, right: 0 }} 
         dragElastic={0.1}
         onClick={() => onClick(routine)}
       >
-        {/* Added background white so it's opaque against the red pill */}
         <Card className="libPoseCard" style={{ margin: 0, background: 'white' }}>
            <div className="libPoseRow">
               <div className="libPoseThumb" style={{ background: '#e9f7dd' }}>
@@ -150,7 +145,7 @@ export default function LibPage() {
   // --- SELECTION STATE ---
   const [selectedPose, setSelectedPose] = useState(null);       
   const [selectedRoutine, setSelectedRoutine] = useState(null); 
-  const [routineToDelete, setRoutineToDelete] = useState(null); // Track item to delete
+  const [routineToDelete, setRoutineToDelete] = useState(null); 
 
   // --- BUILDER STATE ---
   const [isCreating, setIsCreating] = useState(false);
@@ -229,8 +224,14 @@ export default function LibPage() {
     }]);
   }
 
+  // Removes a specific item from the draft board (by unique ID)
   function handleRemoveFromDraft(uniqueId) {
     setDraftPoses(prev => prev.filter(p => p.uniqueId !== uniqueId));
+  }
+  
+  // NEW: Removes a pose by its content ID (used for toggling)
+  function handleRemoveFromDraftById(poseId) {
+    setDraftPoses(prev => prev.filter(p => p.id !== poseId));
   }
 
   function handleCycleDuration(uniqueId) {
@@ -475,7 +476,7 @@ export default function LibPage() {
                  {/* DRAGGABLE POSE LIST */}
                  {draftPoses.length === 0 ? (
                     <div className="libDraftEmpty">
-                       Tap "+" on poses below to add them here.
+                       Tap "+ Add" on poses below to add them here.
                     </div>
                  ) : (
                     <div className="libDraftList">
@@ -513,24 +514,46 @@ export default function LibPage() {
               <AnimatedList
                   items={visiblePoses}
                   showGradients={false}
-                  renderItem={(pose) => (
-                    <div onClick={() => handleAddToDraft(pose)} style={{ cursor: 'pointer', marginBottom: '10px' }}>
-                      <Card className="libPoseCard" style={{ padding: '10px 16px' }}>
-                        <div className="libPoseRow">
-                          <div className="libPoseThumb" style={{ width: '48px', height: '48px' }}>
-                            {pose.image ? <img src={pose.image} alt={pose.name} /> : <span className="libPoseThumbEmoji">🧘</span>}
-                          </div>
-                          <div className="libPoseText">
-                            <div className="libPoseName" style={{ fontSize: '15px' }}>{pose.name}</div>
-                            <div className="libPoseMeta">{pose.duration}</div>
-                          </div>
-                          <button className="libAddButton">
-                            +
-                          </button>
+                  renderItem={(pose) => {
+                    const isAdded = draftPoses.some(p => p.id === pose.id);
+                    return (
+                        <div onClick={() => setSelectedPose(pose)} style={{ cursor: 'pointer', marginBottom: '10px' }}>
+                        <Card className="libPoseCard" style={{ padding: '10px 16px' }}>
+                            <div className="libPoseRow">
+                            <div className="libPoseThumb" style={{ width: '48px', height: '48px' }}>
+                                {pose.image ? <img src={pose.image} alt={pose.name} /> : <span className="libPoseThumbEmoji">🧘</span>}
+                            </div>
+                            <div className="libPoseText">
+                                <div className="libPoseName" style={{ fontSize: '15px' }}>{pose.name}</div>
+                                <div className="libPoseMeta">{pose.duration}</div>
+                            </div>
+                            
+                            {/* --- TOGGLE BUTTON --- */}
+                            <button 
+                                className={`libAddButton ${isAdded ? 'libAddButtonActive' : ''}`}
+                                onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    if (isAdded) {
+                                      // Toggle OFF: Remove from draft
+                                      handleRemoveFromDraftById(pose.id);
+                                    } else {
+                                      // Toggle ON: Add to draft
+                                      handleAddToDraft(pose);
+                                    }
+                                }}
+                            >
+                                {isAdded ? (
+                                    <>
+                                        <img src={TickIcon} alt="Added" style={{width:'14px', marginRight: '6px', filter: 'brightness(10)'}}/>
+                                        Added
+                                    </>
+                                ) : "+ Add"}
+                            </button>
+                            </div>
+                        </Card>
                         </div>
-                      </Card>
-                    </div>
-                  )}
+                    );
+                  }}
                 />
             </>
           )}

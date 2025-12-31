@@ -325,8 +325,8 @@
 .libDraftEmpty {
   padding: 20px;
   text-align: center;
-  color: #88a888;
-  border: 2px dashed #e9f7dd;
+  color: #61b329;
+  border: 2px dashed #61b329;
   border-radius: 16px;
   font-size: 13px;
   margin: 0 16px;
@@ -420,21 +420,31 @@
 
 /* Add Button (Circle) */
 .libAddButton {
-  width: 32px;
-  height: 32px;
-  background: #e9f7dd;
-  color: #61b329;
-  border: none;
-  border-radius: 50%;
-  font-size: 20px;
+  height: 36px;           /* Taller touch target */
+  padding: 0 18px;        /* Wide pill shape */
+  border-radius: 999px;   
+  background: #e9f7dd;    /* Light Mint */
+  color: #0a6f00;         /* Dark Forest Green */
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s;
+  font-size: 14px;
+  font-weight: 700;       /* Bold text */
+  border: 1px solid rgba(97, 179, 41, 0.2);
+  cursor: pointer;
+  margin-left: 12px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .libAddButton:active {
-  transform: scale(0.9);
+  transform: scale(0.95);
+}
+
+.libAddButtonActive {
+  background: #61b329;    /* Yoga Green */
+  color: #ffffff;         /* White text */
+  border-color: #61b329;
 }
 
 /* Create New Routine Card */
@@ -584,7 +594,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  border: 2px dashed #e9f7dd;
+  border: 2px dashed #61b329;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.5);
   color: #61b329;
@@ -695,7 +705,7 @@
   bottom: 0;
   right: 0;
   width: 100%;
-  background-color: #c0392b; /* Danger Red */
+  background-color: #c0392b; 
   border-radius: 16px;
   display: flex;
   align-items: center;
@@ -844,4 +854,53 @@
   background-color: #fff5f5; 
   border: 1px solid #c0392b; 
   color: #c0392b;            
+}
+/* List Container */
+.libList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;          
+  padding-bottom: 0px;      
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; 
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.libList::-webkit-scrollbar {
+  display: none;
+}
+
+/* Button to add poses to routine */
+.libAddBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e3f3e3; /* Soft green */
+  color: #0a6f00;      /* Dark green text */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+}
+
+.libAddBtn:active {
+  transform: scale(0.9);
+}
+
+/* State when item is added */
+.libAddBtnActive {
+  background: #61b329;
+  color: #ffffff;
+}
+
+/* Optional: Highlight the card slightly when added */
+.libPoseCardSelected {
+  background: rgba(233, 247, 221, 0.6); /* Very faint green tint */
+  border-color: #61b329;
 }
