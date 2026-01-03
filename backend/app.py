@@ -237,20 +237,33 @@ def get_routines():
         for r in routines_db:
             routine_id = r.RoutineID
             
-            # 2. For each routine, fetch its poses (ordered by index)
+            # 2. UPDATED QUERY: Left Join to fetch Benefits, Instructions, and Animation
+            # We match RoutinePoses.PoseID with poses.id to get the rich data
             cursor.execute("""
-                SELECT PoseID, PoseName, Duration 
-                FROM RoutinePoses 
-                WHERE RoutineID = ? 
-                ORDER BY OrderIndex ASC
+                SELECT 
+                    rp.PoseID, 
+                    rp.PoseName, 
+                    rp.Duration, 
+                    p.benefits, 
+                    p.instructions, 
+                    p.animation_url
+                FROM RoutinePoses rp
+                LEFT JOIN poses p ON rp.PoseID = p.id
+                WHERE rp.RoutineID = ? 
+                ORDER BY rp.OrderIndex ASC
             """, routine_id)
             
             poses_data = []
             for p in cursor.fetchall():
+                # Map the database columns to the JSON object expected by the UI
                 poses_data.append({
                     "id": p.PoseID,
                     "name": p.PoseName,
-                    "duration": p.Duration
+                    "duration": p.Duration,
+                    # Fallback to default text if the join didn't find a match
+                    "benefits": p.benefits if p.benefits else "Benefits unavailable for this custom pose.",
+                    "instructions": p.instructions if p.instructions else "Follow the audio cues.",
+                    "gif": p.animation_url if p.animation_url else "" 
                 })
 
             routines_list.append({
