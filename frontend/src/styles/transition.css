@@ -1,0 +1,41 @@
+/* Full screen overlay */
+.transitionOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e9f7dd;
+  animation: breatheBackground 4s ease-in-out infinite;
+}
+
+/* NEW: Container specifically for the stacking items */
+.transitionListContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  align-items: center;
+}
+
+/* The text styling */
+.transitionText {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0a6f00;
+  text-align: center;
+  margin: 0;
+  padding: 0 20px;
+}
+
+/* Final message is larger */
+.transitionText.final {
+  font-size: 36px;
+  color: #61b329;
+}
+
+@keyframes breatheBackground {
+  0% { background-color: #e9f7dd; }
+  50% { background-color: #dcedc8; }
+  100% { background-color: #e9f7dd; }
+}

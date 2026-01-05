@@ -17,19 +17,15 @@
 }
 
 /* Title floating over the illustration */
-.homeTitle {
+.homeLogo {
   position: absolute;
-  top: 20px;
+  top: 40px; /* Adjusted down slightly for better spacing */
   left: 50%;
   transform: translateX(-50%);
-  margin: 0;
-  font-size: 32px;
-  font-weight: 700;
-  color: #0a6f00;
-  /* optional soft card behind text */
-  background:none;
-  padding: 8px 20px;
-  border-radius: 999px;
+  width: 200px; /* Adjust this width based on your logo's aspect ratio */
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); /* Optional: adds pop */
 }
 
 /* full background image */
@@ -93,4 +89,19 @@
 .cardButtonSecondary {
   background-color: #e3f3e3;
   color: #2c7a3f;
+}
+
+/* Remove .homeSubtitle and use this instead */
+.homeQuote {
+  margin: 0 0 24px 0;
+  font-size: 16px;
+  line-height: 1.5;
+  font-style: italic;
+  color: #526b57;
+  border-left: 4px solid #61b329; /* Yoga Green Accent */
+  padding-left: 16px; /* Spacing from the green bar */
+  background: linear-gradient(to right, rgba(97,179,41,0.05), transparent); /* Subtle fade */
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-radius: 0 8px 8px 0;
 }

@@ -1,0 +1,6 @@
+.shiny-text {
+  display: inline-block;
+  /* Ensures the gradient shines correctly across the text */
+  background-clip: text;
+  -webkit-background-clip: text; 
+}
