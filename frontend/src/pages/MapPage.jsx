@@ -9,7 +9,7 @@ import {
   Polyline,
 } from "react-leaflet";
 import L from "leaflet";
-import { Reorder, useDragControls } from "motion/react";
+import { Reorder, useDragControls, AnimatePresence, motion } from "motion/react";
 
 // --- Icons ---
 import UserLocationIcon from "../icons/User-Location.svg"; 
@@ -17,6 +17,7 @@ import UserLocationFillIcon from "../icons/User-Location-Fill.svg";
 import TickIcon from "../icons/tick.svg"; 
 import VolumeIcon from "../icons/volume.svg";
 import MuteIcon from "../icons/mute.svg";
+import SearchIcon from "../icons/search.svg"; // NEW IMPORT
 
 import WalkSummaryCard from "../components/WalkSummaryCard";
 
@@ -27,7 +28,7 @@ const defaultCenter = {
 };
 
 const WALK_SPEED_KMH = 5;
-const DRIVE_SPEED_KMH = 40; // Est. city driving speed for duration calc
+const DRIVE_SPEED_KMH = 40; 
 const STEP_ADVANCE_THRESHOLD = 20;
 
 // --- UTILITY FUNCTIONS ---
@@ -74,7 +75,6 @@ function offsetPoint(lat, lng, offsetNorthMeters, offsetEastMeters) {
   return { lat: lat + dLat, lng: lng + dLng };
 }
 
-// Predefined offsets to fan out route duration labels so they don't stack
 const LABEL_OFFSETS_METERS = [
   { north: 0, east: 0 },
   { north: 140, east: 140 },
@@ -233,7 +233,97 @@ function selectDistinctTopRoutes(routes, maxRoutes = 3) {
   return picked;
 }
 
-// --- HELPER COMPONENTS ---
+// --- SUB-COMPONENTS ---
+
+// NEW: Search Focus View (Apple Maps Style)
+function SearchFocusView({
+  type,
+  query,
+  onQueryChange,
+  results,
+  onSelect,
+  onClose,
+  isOrigin,
+  onUseLocation
+}) {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    // Auto-focus the input when view opens
+    if (inputRef.current) {
+        // Slight delay to allow animation to start
+        setTimeout(() => inputRef.current.focus(), 100);
+    }
+  }, []);
+
+  return (
+    <motion.div 
+        className="search-focus-overlay"
+        initial={{ y: "100%" }}
+        animate={{ y: "0%" }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+    >
+        <div className="search-focus-header">
+            <div className="search-focus-input-wrapper">
+                {/* CHANGED: Use SearchIcon instead of dot */}
+                <img 
+                  src={SearchIcon} 
+                  alt="Search" 
+                  className="search-focus-icon-img"
+                />
+                <input 
+                    ref={inputRef}
+                    type="text" 
+                    className="search-focus-input"
+                    placeholder={isOrigin ? "Start Point" : "Where to?"}
+                    value={query}
+                    onChange={onQueryChange}
+                />
+                {query.length > 0 && (
+                    <button className="search-focus-clear" onClick={() => onQueryChange({ target: { value: "" }})}>×</button>
+                )}
+            </div>
+            <button className="search-focus-cancel" onClick={onClose}>Cancel</button>
+        </div>
+
+        <div className="search-focus-body">
+            {isOrigin && (
+                <div className="search-result-row special" onClick={onUseLocation}>
+                    <div className="result-icon-circle blue">
+                        <img src={UserLocationIcon} alt="Loc" style={{ width: '20px', filter: 'brightness(0) invert(1)'}} />
+                    </div>
+                    <div className="result-text-col">
+                        <span className="result-title">Current Location</span>
+                        <span className="result-subtitle">Use GPS</span>
+                    </div>
+                </div>
+            )}
+
+            {results.map((result, idx) => {
+                const title = result.address.road || result.display_name.split(",")[0];
+                const subtitle = result.display_name;
+                
+                return (
+                    <div key={idx} className="search-result-row" onClick={() => onSelect(result)}>
+                        <div className="result-icon-circle">📍</div>
+                        <div className="result-text-col">
+                            <span className="result-title">{title}</span>
+                            <span className="result-subtitle">{subtitle}</span>
+                        </div>
+                    </div>
+                );
+            })}
+            
+            {results.length === 0 && query.length > 2 && (
+                <div className="search-empty-state">
+                    <p>No results found for "{query}"</p>
+                </div>
+            )}
+        </div>
+    </motion.div>
+  );
+}
 
 function GripIcon({ dragControls }) {
   return (
@@ -383,32 +473,25 @@ function VoiceToggleButton({ voiceEnabled, toggleVoice, isWalking }) {
   );
 }
 
-// --------------------------------------------------------
-// NEW: Travel Mode Buttons (Car vs Person)
-// --------------------------------------------------------
 function TravelModeButtons({ travelMode, onToggle, isWalking }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
     if (containerRef.current) {
-      // 1. Tell Leaflet to ignore clicks on this container
       L.DomEvent.disableClickPropagation(containerRef.current);
       L.DomEvent.disableScrollPropagation(containerRef.current);
     }
   }, []);
 
   const handleModeClick = (e, mode) => {
-    // 2. Stop the event from bubbling up to the map
     e.stopPropagation();
     e.preventDefault(); 
-    // 3. Stop native bubbling just in case
     if (e.nativeEvent) {
         e.nativeEvent.stopPropagation();
     }
     onToggle(mode);
   };
 
-  // If we are actively walking/navigating, hide controls
   if (isWalking) return null;
 
   return (
@@ -417,7 +500,7 @@ function TravelModeButtons({ travelMode, onToggle, isWalking }) {
         onClick={(e) => handleModeClick(e, "driving")}
         className={`mode-btn ${travelMode === "driving" ? "active" : ""}`}
         title="Car Route"
-        type="button" // Good practice to prevent form submissions
+        type="button" 
       >
         🚗
       </button>
@@ -478,6 +561,7 @@ function createStreetNameIcon(streetName) {
 
 export default function MapPage() {
   const location = useLocation(); 
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
   
   const [map, setMap] = useState(null);
   const [origin, setOrigin] = useState(null);
@@ -488,7 +572,7 @@ export default function MapPage() {
   const [routes, setRoutes] = useState([]);
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
 
-  // --- TRAVEL MODE STATE (NEW) ---
+  // --- TRAVEL MODE STATE ---
   const [travelMode, setTravelMode] = useState("foot");
 
   // --- ROUTINE & THEME STATE ---
@@ -500,11 +584,11 @@ export default function MapPage() {
   const [isWalking, setIsWalking] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   
-  // Overlay State (Checkpoint Details)
+  // Overlay State
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
 
-  // --- NEW: REFLECTION STATE ---
+  // --- REFLECTION STATE ---
   const [reflections, setReflections] = useState({}); 
   const [tempReflection, setTempReflection] = useState(""); 
   
@@ -525,6 +609,9 @@ export default function MapPage() {
   const isWalkingRef = useRef(isWalking);
   const showStreetNamesRef = useRef(false);
   
+  // --- FOCUS SEARCH STATE (The New Logic) ---
+  const [activeSearchField, setActiveSearchField] = useState(null); // 'origin' | 'destination' | null
+
   useEffect(() => {
     isWalkingRef.current = isWalking;
     if (!isWalking) {
@@ -574,10 +661,8 @@ export default function MapPage() {
   // --- SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState(""); 
   const [searchResults, setSearchResults] = useState([]); 
-  const [showDropdown, setShowDropdown] = useState(false);
   const [originQuery, setOriginQuery] = useState("");
   const [originResults, setOriginResults] = useState([]);
-  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
 
   // --- DRAG ORDER STATE ---
   const [fieldOrder, setFieldOrder] = useState(["origin", "destination"]);
@@ -610,12 +695,89 @@ export default function MapPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const voiceEnabledRef = useRef(voiceEnabled);
 
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const lastStepChangeRef = useRef(Date.now());
   const searchTimeoutRef = useRef(null);
   const walkStartTimeRef = useRef(null);
+  const debounceFetchRef = useRef(null);
+
+  // --- FETCH JOURNEY DATA HELPER ---
+  const fetchJourneyData = async (org, dst, count) => {
+      const payload = {
+        origin: org,
+        destination: dst,
+        checkpoint_count: count,
+      };
+
+      const res = await fetch(`${apiBase}/api/journey`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load checkpoints from server");
+      }
+
+      const data = await res.json();
+      let finalCheckpoints = data.checkpoints || [];
+
+      // Routine Logic Override
+      if (activeRoutine && activeRoutine.poses.length > 0) {
+          finalCheckpoints = finalCheckpoints.map((cp, index) => {
+              const poseIndex = index % activeRoutine.poses.length;
+              const routinePose = activeRoutine.poses[poseIndex];
+              return {
+                  ...cp,
+                  exercise: {
+                      name: routinePose.name,
+                      duration: routinePose.duration || "30 sec",
+                      benefits: routinePose.benefits,
+                      instructions: routinePose.instructions,
+                      gif: routinePose.image 
+                  }
+              };
+          });
+      }
+
+      // Theme Logic
+      if (selectedThemeId) {
+          try {
+              const qRes = await fetch(`${apiBase}/api/theme/${selectedThemeId}/questions`);
+              const questions = await qRes.json();
+              if (questions && questions.length > 0) {
+                    finalCheckpoints = finalCheckpoints.map((cp, i) => ({
+                        ...cp,
+                        reflection_question: questions[i % questions.length] 
+                    }));
+              }
+          } catch (qErr) {
+              console.warn("Failed to fetch reflection questions", qErr);
+          }
+      }
+      return finalCheckpoints;
+  };
 
   // --- EFFECTS ---
+  
+  useEffect(() => {
+    // Only fetch if we have a valid route and aren't walking yet
+    if (isWalking || routes.length === 0 || !origin || !destination) return;
+    if (activeRoutine) return;
+
+    if (checkpoints.length !== checkpointCount) {
+        if (debounceFetchRef.current) clearTimeout(debounceFetchRef.current);
+        debounceFetchRef.current = setTimeout(async () => {
+            try {
+                const newData = await fetchJourneyData(origin, destination, checkpointCount);
+                setCheckpoints(newData);
+            } catch (err) {
+                console.error("Failed to sync checkpoints", err);
+            }
+        }, 600); 
+    }
+  }, [checkpointCount, isWalking, routes, origin, destination, activeRoutine, checkpoints.length]);
+
+
   useEffect(() => {
     fetch(`${apiBase}/api/themes`)
         .then(res => res.json())
@@ -679,16 +841,16 @@ export default function MapPage() {
   }, [selectedCheckpoint]);
 
   useEffect(() => {
-    if (destinationLabel && !showDropdown) {
+    if (destinationLabel) {
       setSearchQuery(destinationLabel);
     }
-  }, [destinationLabel, showDropdown]);
+  }, [destinationLabel]);
 
   useEffect(() => {
-    if (originLabel && !showOriginDropdown) {
+    if (originLabel) {
       setOriginQuery(originLabel);
     }
-  }, [originLabel, showOriginDropdown]);
+  }, [originLabel]);
 
   useEffect(() => {
     const savedState = localStorage.getItem("activeWalkState");
@@ -711,7 +873,7 @@ export default function MapPage() {
             if (parsed.destinationLabel) setDestinationLabel(parsed.destinationLabel);
             if (parsed.voiceEnabled !== undefined) setVoiceEnabled(parsed.voiceEnabled);
             if (parsed.reflections) setReflections(parsed.reflections);
-            if (parsed.travelMode) setTravelMode(parsed.travelMode); // RESTORE MODE
+            if (parsed.travelMode) setTravelMode(parsed.travelMode); 
         } catch (e) {
             console.error("Failed to restore walk state", e);
         }
@@ -741,7 +903,7 @@ export default function MapPage() {
             destinationLabel,
             voiceEnabled,
             reflections,
-            travelMode // SAVE MODE
+            travelMode 
         };
         localStorage.setItem("activeWalkState", JSON.stringify(stateToSave));
     } else {
@@ -801,7 +963,6 @@ export default function MapPage() {
 
     if (query.length < 2) {
       setSearchResults([]);
-      setShowDropdown(false);
       return;
     }
 
@@ -824,7 +985,6 @@ export default function MapPage() {
             const res = await fetch(url);
             const data = await res.json();
             setSearchResults(data);
-            setShowDropdown(true);
         } catch (err) {
             console.error("Autocomplete failed", err);
         }
@@ -842,7 +1002,7 @@ export default function MapPage() {
     setDestinationLabel(label);
     setSearchQuery(label);
     setSearchResults([]);
-    setShowDropdown(false);
+    setActiveSearchField(null); // Close the overlay
     setSelectionStep("done");
     setSheetOpen(true);
   };
@@ -854,7 +1014,6 @@ export default function MapPage() {
 
     if (query.length < 2) {
       setOriginResults([]);
-      setShowOriginDropdown(false);
       return;
     }
 
@@ -877,7 +1036,6 @@ export default function MapPage() {
         const res = await fetch(url);
         const data = await res.json();
         setOriginResults(data);
-        setShowOriginDropdown(true);
       } catch (err) {
         console.error("Origin search failed", err);
       }
@@ -893,7 +1051,7 @@ export default function MapPage() {
     setOriginLabel(label);
     setOriginQuery(label);
     setOriginResults([]);
-    setShowOriginDropdown(false);
+    setActiveSearchField(null); // Close the overlay
     setIsOriginCurrentLocation(false);
   };
 
@@ -1083,7 +1241,6 @@ export default function MapPage() {
     setCheckpointPositions(positions);
   }
 
-  // --- NEW: RE-FIT FUNCTION (EXPOSED FOR BUTTON) ---
   function fitMapToRoute(customRoutes = null) {
     const routesToUse = customRoutes || routes;
     
@@ -1134,7 +1291,7 @@ export default function MapPage() {
 
   async function handleUseMyLocation() {
     setOriginQuery("Locating...");
-    setShowOriginDropdown(false);
+    setActiveSearchField(null); // Close the overlay immediately
     let loc = userLocation;
     if (!loc) {
       if (!("geolocation" in navigator)) {
@@ -1166,7 +1323,6 @@ export default function MapPage() {
     setSheetOpen(true);
   }
 
-  // --- UPDATED: Dynamic Routing (Foot vs Car) ---
   async function fetchSingleRoute(pointList, mode) {
     const coordString = pointList.map((p) => `${p.lng},${p.lat}`).join(";");
     
@@ -1193,13 +1349,11 @@ export default function MapPage() {
           const stepCoords = stepGeometry.map(([lng, lat]) => ({ lat, lng }));
           
           let instructionText = "";
-          // Customize instructions based on mode
           if (mode === 'foot') {
               instructionText = step.maneuver.type === 'depart' 
                 ? `Start walking ${step.maneuver.modifier || 'forward'} on ${step.name || 'path'}`
                 : `${step.maneuver.type} ${step.maneuver.modifier || ''} ${step.name ? 'along ' + step.name : ''}`;
           } else {
-              // Driving instructions (default OSRM style)
               instructionText = step.maneuver.type === 'depart' 
                 ? `Drive ${step.maneuver.modifier || 'forward'} on ${step.name || 'road'}`
                 : `Turn ${step.maneuver.modifier || ''} onto ${step.name || 'road'}`;
@@ -1257,15 +1411,15 @@ export default function MapPage() {
   // --- HANDLER: GENERATE JOURNEY ---
   async function handleSubmit(e, customMode = null) {
     if (e) e.preventDefault();
-    const modeToUse = customMode || travelMode; // Allow override for immediate toggle
+    const modeToUse = customMode || travelMode;
 
     console.log("🟢 Finding Routes. Mode:", modeToUse);
     
     if (!origin || !destination) {
       if (!origin && originQuery.length > 0) {
-        setErrorMsg("Please select a starting point from the dropdown list.");
+        setErrorMsg("Please select a starting point.");
       } else if (!destination && searchQuery.length > 0) {
-        setErrorMsg("Please select a destination from the dropdown list.");
+        setErrorMsg("Please select a destination.");
       } else {
         setErrorMsg("Please choose destination and starting point.");
       }
@@ -1276,7 +1430,7 @@ export default function MapPage() {
     setErrorMsg("");
 
     try {
-      // Pass the mode to fetchRoutes
+      // 1. Fetch Routes (OSRM)
       const routeOptions = await fetchRoutes(origin, destination, modeToUse);
       
       setRoutes(routeOptions);
@@ -1285,64 +1439,31 @@ export default function MapPage() {
       setShowDirections(false); 
 
       const selectedRoute = routeOptions[0];
-      const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
-      
-      const payload = {
-        origin,
-        destination,
-        checkpoint_count: countToUse,
-      };
 
-      const res = await fetch(`${apiBase}/api/journey`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to load checkpoints from server");
+      // 2. Smart Checkpoint Count (1 per KM)
+      let countToUse;
+      if (activeRoutine) {
+        countToUse = activeRoutine.poses.length;
+      } else {
+        const distanceKm = selectedRoute.distance / 1000;
+        // Default: 1 per km, minimum 1
+        countToUse = Math.max(1, Math.round(distanceKm));
+        setCheckpointCount(countToUse); // Update the slider UI
       }
-
-      const data = await res.json();
-      let finalCheckpoints = data.checkpoints || [];
       
+      // 3. Render the dots immediately using the calculated count
       updateCheckpointPositionsForRoute(selectedRoute, countToUse);
-
-      if (activeRoutine && activeRoutine.poses.length > 0) {
-          finalCheckpoints = finalCheckpoints.map((cp, index) => {
-              const poseIndex = index % activeRoutine.poses.length;
-              const routinePose = activeRoutine.poses[poseIndex];
-              return {
-                  ...cp,
-                  exercise: {
-                      name: routinePose.name,
-                      duration: routinePose.duration || "30 sec",
-                      benefits: routinePose.benefits,
-                      instructions: routinePose.instructions,
-                      gif: routinePose.image 
-                  }
-              };
-          });
-      }
-      if (selectedThemeId) {
-          try {
-              const qRes = await fetch(`${apiBase}/api/theme/${selectedThemeId}/questions`);
-              const questions = await qRes.json();
-              if (questions && questions.length > 0) {
-                    finalCheckpoints = finalCheckpoints.map((cp, i) => ({
-                        ...cp,
-                        reflection_question: questions[i % questions.length] 
-                    }));
-              }
-          } catch (qErr) {
-              console.warn("Failed to fetch reflection questions", qErr);
-          }
-      }
+      
+      // 4. Fetch the checkpoint data (Poses/Questions)
+      // We explicitly call this here to ensure immediate loading
+      const finalCheckpoints = await fetchJourneyData(origin, destination, countToUse);
       setCheckpoints(finalCheckpoints);
       
+      // Reset walk states
       setVisitedIndices(new Set()); 
       setReflections({});
       
+      // ... Street Name Logic ...
       if (routeOptions[0] && routeOptions[0].steps) {
         const sampledPoints = sampleStreetNamePoints(routeOptions[0].steps, 100);
         const pointsByStreet = {};
@@ -1383,12 +1504,10 @@ export default function MapPage() {
     }
   }
 
-  // --- NEW: Handle Mode Toggle Click ---
   const handleModeToggle = (newMode) => {
     if (newMode === travelMode) return;
     setTravelMode(newMode);
     
-    // If we already have points, refresh the route immediately
     if (origin && destination) {
         handleSubmit(null, newMode);
     }
@@ -1507,7 +1626,7 @@ export default function MapPage() {
     setActiveRoutine(null);
     setShowRouteSelection(false); 
     setShowDirections(false); 
-    setTravelMode("foot"); // Reset mode to default
+    setTravelMode("foot"); 
 
     if (map && userLocation) {
         map.flyTo(userLocation, 15, { animate: true });
@@ -1576,6 +1695,13 @@ export default function MapPage() {
   }
 
   const activeRoute = routes[activeRouteIndex];
+  
+  // --- NEW: Smart Slider Logic ---
+  const routeDistanceKm = activeRoute ? (activeRoute.distance / 1000) : 1;
+  const recommendedCount = Math.max(1, Math.round(routeDistanceKm));
+  const maxAllowed = Math.max(5, Math.ceil(routeDistanceKm * 3)); 
+  // ------------------------------
+
   const sheetSummaryText = isWalking ? "Current Navigation" : "Plan your Yoga Walk";
   
   useEffect(() => {
@@ -1607,6 +1733,7 @@ export default function MapPage() {
 
   return (
     <div className="mapPageRoot">
+      {/* 1. MAP LAYER */}
       <div className="mapWrapper">
         {showSummary && finalMetrics && (
             <WalkSummaryCard
@@ -1637,10 +1764,8 @@ export default function MapPage() {
           />
 
           <ClickHandler onClick={handleMapClick} />
-          
           <MapViewTracker onZoomChange={handleZoomChange} />
           
-          {/* MAP CONTROLS */}
           <UserLocationButton 
             userLocation={userLocation} 
             setHeading={setHeading} 
@@ -1666,7 +1791,6 @@ export default function MapPage() {
           )}
 
           {origin && !isOriginCurrentLocation && <Marker position={origin} />}
-          
           {destination && <Marker position={destination} />}
 
           {checkpointPositions.map((pos, idx) => (
@@ -1712,7 +1836,6 @@ export default function MapPage() {
 
           {!isWalking && routes.map((route, idx) => {
             if (idx === activeRouteIndex) return null; 
-
             return (
               <Polyline
                 key={route.id}
@@ -1758,6 +1881,23 @@ export default function MapPage() {
         </MapContainer>
       </div>
 
+      {/* 2. SEARCH FOCUS OVERLAY (The Apple Maps View) */}
+      <AnimatePresence>
+        {activeSearchField && (
+            <SearchFocusView
+                type={activeSearchField}
+                query={activeSearchField === 'origin' ? originQuery : searchQuery}
+                onQueryChange={activeSearchField === 'origin' ? handleOriginSearch : handleSearchChange}
+                results={activeSearchField === 'origin' ? originResults : searchResults}
+                onSelect={activeSearchField === 'origin' ? selectOriginResult : selectSearchResult}
+                onClose={() => setActiveSearchField(null)}
+                isOrigin={activeSearchField === 'origin'}
+                onUseLocation={handleUseMyLocation}
+            />
+        )}
+      </AnimatePresence>
+
+      {/* 3. ACTIVE NAV & CHECKPOINTS */}
       {((isWalking || showDirections) && activeRoute) && (
         <div className="activeNavOverlay">
           <div className="activeNavHeaderRow">
@@ -2011,6 +2151,9 @@ export default function MapPage() {
               <>
                 {geoError && <p className="mapGeoErrorInline">{geoError}</p>}
                 
+                {/* LINEAR FLOW STEP 1: DESTINATION INPUTS (TRIGGERS)
+                   Now these just open the focus view. No dropdowns here.
+                */}
                 {!showRouteSelection && !showDirections && (
                   <div className="abstract-timeline">
                     <Reorder.Group 
@@ -2024,39 +2167,16 @@ export default function MapPage() {
                             {(dragControls) => (
                               <div className="location-row-abstract">
                                 <div className="location-pill-abstract">
+                                  {/* TRIGGER INPUT - READ ONLY */}
                                   <input 
                                     type="text" 
                                     className="timeline-input"
                                     placeholder={item === "origin" ? "Choose starting point" : "Where to?"}
                                     value={item === "origin" ? originQuery : searchQuery}
-                                    onChange={item === "origin" ? handleOriginSearch : handleSearchChange}
-                                    onFocus={() => item === "origin" ? setShowOriginDropdown(true) : setShowDropdown(true)}
-                                    onBlur={() => setTimeout(() => item === "origin" ? setShowOriginDropdown(false) : setShowDropdown(false), 200)}
+                                    readOnly 
+                                    onClick={() => setActiveSearchField(item)} // Open Focus View
                                   />
                                   <GripIcon dragControls={dragControls} />
-                                  {item === "origin" && showOriginDropdown && (
-                                    <div className="timeline-dropdown">
-                                      <div className="dropdown-option-special" onClick={handleUseMyLocation}>
-                                        <span>⌖</span> Use my current location
-                                      </div>
-                                      {originResults.map((result, idx) => (
-                                        <div key={idx} className="dropdown-option" onClick={() => selectOriginResult(result)}>
-                                          <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
-                                          <span className="dropdown-sub-text">{result.display_name}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {item === "destination" && showDropdown && (
-                                    <div className="timeline-dropdown">
-                                      {searchResults.map((result, idx) => (
-                                        <div key={idx} className="dropdown-option" onClick={() => selectSearchResult(result)}>
-                                          <span className="dropdown-main-text">{result.address.road || result.display_name.split(",")[0]}</span>
-                                          <span className="dropdown-sub-text">{result.display_name}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             )}
@@ -2066,11 +2186,13 @@ export default function MapPage() {
                   </div>
                 )}
 
+                {/* LINEAR FLOW STEP 2: ROUTE SELECTION + CHECKPOINT SLIDER */}
                 {showRouteSelection && routes.length > 0 && (
                   <div className="route-selection-container">
                     <h3 className="route-selection-title">
                       Select a Route
                     </h3>
+                    
                     <div 
                       className="routeChoices"
                       ref={routesContainerRef}
@@ -2086,100 +2208,69 @@ export default function MapPage() {
                           className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
                           onClick={() => {
                             setActiveRouteIndex(idx);
-                            const countToUse = activeRoutine ? activeRoutine.poses.length : Number(checkpointCount);
-                            updateCheckpointPositionsForRoute(route, countToUse);
+                            const distKm = route.distance / 1000;
+                            const smartCount = Math.max(1, Math.round(distKm));
+                            setCheckpointCount(smartCount); 
+                            updateCheckpointPositionsForRoute(route, smartCount);
                           }}
                         >
                           <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
                         </button>
                       ))}
                     </div>
-                  </div>
-                )}
 
+                    <div className="checkpoint-control-abstract" style={{ marginTop: '20px' }}>
+                        <div className="checkpoint-header">
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <span className="checkpoint-label">
+                                  {activeRoutine ? `🧘 ${activeRoutine.title}` : "🧘 Yoga Checkpoints"}
+                                </span>
+                                {!activeRoutine && checkpointCount === recommendedCount && (
+                                    <span style={{ fontSize: '11px', color: '#61b329', fontWeight: '700', marginTop: '2px' }}>
+                                      ✨ Recommended
+                                    </span>
+                                )}
+                            </div>
+                            <span className="checkpoint-count-display">{checkpointCount}</span>
+                        </div>
+                        
+                        {!activeRoutine ? (
+                            <input
+                                type="range"
+                                min="1"
+                                max={maxAllowed} 
+                                step="1"
+                                className="styled-slider"
+                                value={checkpointCount}
+                                onChange={(e) => {
+                                    const value = Number(e.target.value);
+                                    setCheckpointCount(value);
+                                    if (routes[activeRouteIndex]) {
+                                        updateCheckpointPositionsForRoute(routes[activeRouteIndex], value);
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <p className="checkpoint-locked-text">
+                               Checkpoints locked to routine.
+                            </p>
+                        )}
 
-                {!showRouteSelection && (
-                  <div className="checkpoint-control-abstract">
-                      <div className="checkpoint-header">
-                          <span className="checkpoint-label">
-                             {activeRoutine ? `🧘 ${activeRoutine.title}` : "🧘 Yoga Checkpoints"}
-                          </span>
-                          <span className="checkpoint-count-display">{checkpointCount}</span>
-                      </div>
-                      
-                      {!activeRoutine ? (
-                          <input
-                              type="range"
-                              min="1"
-                              max="10"
-                              step="1"
-                              className="styled-slider"
-                              value={checkpointCount}
-                              onChange={(e) => {
-                                  const value = Number(e.target.value);
-                                  setCheckpointCount(value);
-                                  if (routes[activeRouteIndex]) {
-                                      updateCheckpointPositionsForRoute(routes[activeRouteIndex], value);
-                                  } else {
-                                      setCheckpointPositions([]);
-                                  }
-                              }}
-                          />
-                      ) : (
-                          <p className="checkpoint-locked-text">
-                             Checkpoints locked to routine.
-                          </p>
-                      )}
-
-                      {!activeRoutine && (
-                          <div className="checkpoint-range-labels">
-                              <span>1</span>
-                              <span>10</span>
-                          </div>
-                      )}
-
-                      <div className="theme-selector">
-                        <label className="theme-selector-label">
-                          🧠 Reflection Theme
-                        </label>
-                        <select 
-                          value={selectedThemeId || ""} 
-                          onChange={(e) => setSelectedThemeId(e.target.value)}
-                          className="theme-selector-select"
-                        >
-                          <option value="">-- Random Mix --</option>
-                          {themes.map(t => (
-                              <option key={t.id} value={t.id}>{t.title}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                  </div>
-                )}
-
-                {!showRouteSelection && !showDirections && routes.length > 1 && (
-                  <div className="routes-container-spacing">
-                    <div 
-                      className="routeChoices"
-                      ref={routesContainerRef}
-                      onMouseDown={startDragging}
-                      onMouseLeave={stopDragging}
-                      onMouseUp={stopDragging}
-                      onMouseMove={onDragMove}
-                    >
-                      {routes.map((route, idx) => (
-                        <button
-                          key={route.id}
-                          type="button"
-                          className={"routeChoiceBtn" + (idx === activeRouteIndex ? " routeChoiceBtnActive" : "")}
-                          onClick={() => {
-                            setActiveRouteIndex(idx);
-                            updateCheckpointPositionsForRoute(route, Number(checkpointCount));
-                          }}
-                        >
-                          <strong>Route {idx + 1}</strong> • {formatDuration(route.duration)} ({formatDistance(route.distance)})
-                        </button>
-                      ))}
+                        <div className="theme-selector">
+                          <label className="theme-selector-label">
+                            🧠 Reflection Theme
+                          </label>
+                          <select 
+                            value={selectedThemeId || ""} 
+                            onChange={(e) => setSelectedThemeId(e.target.value)}
+                            className="theme-selector-select"
+                          >
+                            <option value="">-- Random Mix --</option>
+                            {themes.map(t => (
+                                <option key={t.id} value={t.id}>{t.title}</option>
+                            ))}
+                          </select>
+                        </div>
                     </div>
                   </div>
                 )}
