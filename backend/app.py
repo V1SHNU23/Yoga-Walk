@@ -2,6 +2,12 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import pyodbc
 from datetime import datetime
+import json
+
+try:
+    from pywebpush import webpush, WebPushException
+except Exception as e:
+    print(f"\n❌ CRITICAL IMPORT ERROR: {e}\n")
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +20,15 @@ CONN_STR = (
     r'UID=solomon.s;'  
     r'PWD=87wbc9F_;'  
 )
+
+# --- NOTIFICATION CONFIGURATION ---
+# TODO: Generate these using "npx web-push generate-vapid-keys" in your frontend terminal
+VAPID_PUBLIC_KEY = "BAata_vEteQWcos37gHCP_Rf9NPLymVZSs2CwhcJQ9BPL6Aabgv7P1qTXia4Ti8eo3p0xgaGuUqcXWknTXNbJNc"
+VAPID_PRIVATE_KEY = "TOYMZn0cY6wxDl0mgxqOakamwCJkSlKNyqpH9Z7SiTo"
+VAPID_CLAIMS = {"sub": "vishnu.shaibu@gmail.com"}
+
+# In-memory storage for subscriptions (Use a DB table in production)
+SUBSCRIPTIONS = []
 
 def get_db():
     if 'db' not in g:
@@ -42,7 +57,7 @@ def generate_checkpoints(origin, destination, count):
         })
     return checkpoints
 
-# --- ROUTES ---
+# --- CORE ROUTES ---
 
 @app.route("/api/poses", methods=["GET"])
 def get_all_poses():
@@ -238,7 +253,6 @@ def get_routines():
             routine_id = r.RoutineID
             
             # 2. UPDATED QUERY: Left Join to fetch Benefits, Instructions, and Animation
-            # We match RoutinePoses.PoseID with poses.id to get the rich data
             cursor.execute("""
                 SELECT 
                     rp.PoseID, 
@@ -255,12 +269,10 @@ def get_routines():
             
             poses_data = []
             for p in cursor.fetchall():
-                # Map the database columns to the JSON object expected by the UI
                 poses_data.append({
                     "id": p.PoseID,
                     "name": p.PoseName,
                     "duration": p.Duration,
-                    # Fallback to default text if the join didn't find a match
                     "benefits": p.benefits if p.benefits else "Benefits unavailable for this custom pose.",
                     "instructions": p.instructions if p.instructions else "Follow the audio cues.",
                     "gif": p.animation_url if p.animation_url else "" 
@@ -286,11 +298,10 @@ def get_routines():
 def create_routine():
     data = request.get_json()
     
-    # Extract Data from Frontend
     name = data.get("title")
     desc = data.get("description", "")
     duration = data.get("duration", "5 min")
-    cover_image = data.get("coverImage") # This will be a large Base64 string
+    cover_image = data.get("coverImage")
     poses = data.get("poses", [])
 
     if not name: return jsonify({"error": "Name required"}), 400
@@ -314,7 +325,6 @@ def create_routine():
 
         # 3. Insert all the Poses for this routine
         for index, pose in enumerate(poses):
-            # We save PoseID if available, but also the Name/Duration as backup
             cursor.execute("""
                 INSERT INTO RoutinePoses (RoutineID, PoseID, PoseName, Duration, OrderIndex)
                 VALUES (?, ?, ?, ?, ?)
@@ -332,14 +342,50 @@ def delete_routine(id):
     conn = get_db()
     try:
         cursor = conn.cursor()
-        # Manually delete poses first (just in case CASCADE isn't set perfectly on DB side)
         cursor.execute("DELETE FROM RoutinePoses WHERE RoutineID = ?", id)
-        # Delete the routine
         cursor.execute("DELETE FROM Routines WHERE RoutineID = ?", id)
         conn.commit()
         return jsonify({"message": "Routine deleted"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# --- NEW NOTIFICATION ROUTES ---
+
+@app.route("/api/subscribe", methods=["POST"])
+def subscribe():
+    """Saves a user's push notification subscription."""
+    subscription_info = request.json
+    # In a real app, save this to a database linked to the UserID
+    if subscription_info and subscription_info not in SUBSCRIPTIONS:
+        SUBSCRIPTIONS.append(subscription_info)
+        print(f"✅ New subscriber! Total: {len(SUBSCRIPTIONS)}")
+    return jsonify({"success": True}), 201
+
+@app.route("/api/trigger_reminders", methods=["POST"])
+def trigger_reminders():
+    """Manually trigger daily reminders."""
+    message = json.dumps({
+        "title": "Yoga Walk Time! 🌿",
+        "body": "The sun is out. Time to keep your streak alive!",
+        "url": "/"
+    })
+
+    print(f"🔔 Sending reminders to {len(SUBSCRIPTIONS)} devices...")
+    
+    success_count = 0
+    for sub in SUBSCRIPTIONS:
+        try:
+            webpush(
+                subscription_info=sub,
+                data=message,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims=VAPID_CLAIMS
+            )
+            success_count += 1
+        except WebPushException as ex:
+            print(f"❌ Push failed: {ex}")
+            
+    return jsonify({"message": f"Reminders sent to {success_count} devices."})
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)

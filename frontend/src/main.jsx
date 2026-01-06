@@ -22,9 +22,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 );
 
 // --- SERVICE WORKER REGISTRATION ---
-// We only register the service worker in PRODUCTION.
-// This prevents the "Zombie App" issue where localhost serves old cached code.
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+// Updated to run in both DEV and PROD for testing
+if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")

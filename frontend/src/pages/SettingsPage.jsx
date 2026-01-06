@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import BackIcon from "../icons/back.svg";
 
 function Toggle({ checked, onChange }) {
@@ -18,11 +18,70 @@ function Toggle({ checked, onChange }) {
 
 export default function SettingsPage({ onChangePage }) {
   // simple local state for toggles (no persistence yet)
-  const [dailyReminder, setDailyReminder] = useState(true);
+  const [dailyReminder, setDailyReminder] = useState(false);
   const [streakAlerts, setStreakAlerts] = useState(true);
   const [checkpointAlerts, setCheckpointAlerts] = useState(true);
   const [poseReminders, setPoseReminders] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
+
+  // NEW: Check if user is already subscribed when page loads
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.pushManager.getSubscription().then((subscription) => {
+          setDailyReminder(!!subscription);
+        });
+      });
+    }
+  }, []);
+
+  // NEW: Handle the specific logic for Push Notifications
+  const handleReminderToggle = async (checked) => {
+    if (!checked) {
+      // For MVP, just visually toggle off. 
+      // (Real app: call backend to remove sub from DB)
+      setDailyReminder(false);
+      return;
+    }
+
+    if (!("serviceWorker" in navigator)) {
+      alert("Notifications not supported on this browser.");
+      return;
+    }
+
+    // Request browser permission
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      alert("You need to allow notifications to get reminders.");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+
+      // TODO: Replace this with your generated Public Key from "npx web-push generate-vapid-keys"
+      const publicVapidKey = "BAata_vEteQWcos37gHCP_Rf9NPLymVZSs2CwhcJQ9BPL6Aabgv7P1qTXia4Ti8eo3p0xgaGuUqcXWknTXNbJNc";
+
+      // Subscribe the user
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: publicVapidKey,
+      });
+
+      // Send the subscription object to your backend
+      await fetch("http://127.0.0.1:5000/api/subscribe", {
+        method: "POST",
+        body: JSON.stringify(subscription),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      setDailyReminder(true);
+      alert("Daily reminders enabled! 🌿");
+    } catch (err) {
+      console.error("Subscription failed:", err);
+      alert("Failed to enable reminders. Check console for details.");
+    }
+  };
 
   return (
     <div className="settingsPage">
@@ -97,9 +156,10 @@ export default function SettingsPage({ onChangePage }) {
                   Gentle nudge to go for a Yoga Walk
                 </span>
               </div>
+              {/* WIRED UP TOGGLE */}
               <Toggle
                 checked={dailyReminder}
-                onChange={setDailyReminder}
+                onChange={handleReminderToggle}
               />
             </div>
 
