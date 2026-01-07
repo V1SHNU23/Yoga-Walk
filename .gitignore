@@ -3,3 +3,8 @@ venv/
 .env
 .DS_Store
 dist/
+# Backend Security & Virtual Env
+.env
+venv/
+__pycache__/
+*.pyc

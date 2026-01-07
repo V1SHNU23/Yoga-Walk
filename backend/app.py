@@ -3,6 +3,11 @@ from flask_cors import CORS
 import pyodbc
 from datetime import datetime
 import json
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 try:
     from pywebpush import webpush, WebPushException
@@ -12,20 +17,23 @@ except Exception as e:
 app = Flask(__name__)
 CORS(app)
 
-# --- DATABASE CONFIGURATION ---
+# --- DATABASE CONFIGURATION (SECURE) ---
+# Now reading from environment variables defined in .env
 CONN_STR = (
     r'DRIVER={ODBC Driver 17 for SQL Server};'
-    r'SERVER=139.99.183.1\SQL2019;'
-    r'DATABASE=kailash_yogawalk;'
-    r'UID=solomon.s;'  
-    r'PWD=87wbc9F_;'  
+    f'SERVER={os.getenv("DB_SERVER")};'
+    f'DATABASE={os.getenv("DB_DATABASE")};'
+    f'UID={os.getenv("DB_USER")};'
+    f'PWD={os.getenv("DB_PASSWORD")};'
 )
 
 # --- NOTIFICATION CONFIGURATION ---
-# TODO: Generate these using "npx web-push generate-vapid-keys" in your frontend terminal
+# Public key is safe to keep in code
 VAPID_PUBLIC_KEY = "BAata_vEteQWcos37gHCP_Rf9NPLymVZSs2CwhcJQ9BPL6Aabgv7P1qTXia4Ti8eo3p0xgaGuUqcXWknTXNbJNc"
-VAPID_PRIVATE_KEY = "TOYMZn0cY6wxDl0mgxqOakamwCJkSlKNyqpH9Z7SiTo"
-VAPID_CLAIMS = {"sub": "vishnu.shaibu@gmail.com"}
+
+# Private key and email now loaded securely from .env
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
+VAPID_CLAIMS = {"sub": os.getenv("VAPID_EMAIL")}
 
 # In-memory storage for subscriptions (Use a DB table in production)
 SUBSCRIPTIONS = []
