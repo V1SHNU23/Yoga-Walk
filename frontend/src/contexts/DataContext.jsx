@@ -8,7 +8,6 @@ export function DataProvider({ children }) {
   const [history, setHistory] = useState(() => {
     try {
       const saved = localStorage.getItem("yoga_history_v1");
-      // If we find data, we use it instantly
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       console.error("Error reading cache", e);
@@ -16,41 +15,38 @@ export function DataProvider({ children }) {
     }
   });
 
-  // 2. SMART LOADING STATE
-  // We are ONLY "loading" if we have absolutely nothing in storage
   const [loading, setLoading] = useState(() => {
     return !localStorage.getItem("yoga_history_v1");
   });
 
-  // 3. BACKGROUND UPDATE (Syncs with server silently)
-  useEffect(() => {
-    async function fetchAllData() {
-      try {
-        console.log("📥 Syncing data in background...");
-        
-        // Use localhost to avoid IP issues
-        const historyRes = await fetch("http://localhost:5000/api/walk_history");
-        const historyData = await historyRes.json();
+  // NEW: Define the fetch function outside so we can export it
+  const fetchAllData = async () => {
+    try {
+      console.log("📥 Syncing data...");
+      const historyRes = await fetch("http://localhost:5000/api/walk_history");
+      const historyData = await historyRes.json();
 
-        const list = historyData.history || historyData || [];
-        
-        // Update State & Update Cache
-        setHistory(list);
-        setLoading(false);
-        localStorage.setItem("yoga_history_v1", JSON.stringify(list));
-        
-        console.log("✅ Data synced & cached");
-      } catch (error) {
-        console.error("Background sync failed (using cache):", error);
-        setLoading(false); 
-      }
+      const list = historyData.history || historyData || [];
+      
+      setHistory(list);
+      setLoading(false);
+      localStorage.setItem("yoga_history_v1", JSON.stringify(list));
+      
+      console.log("✅ Data synced & cached");
+    } catch (error) {
+      console.error("Background sync failed:", error);
+      setLoading(false); 
     }
+  };
 
+  // 3. Initial Load
+  useEffect(() => {
     fetchAllData();
   }, []); 
 
+  // 4. Export refreshData
   return (
-    <DataContext.Provider value={{ history, loading }}>
+    <DataContext.Provider value={{ history, loading, refreshData: fetchAllData }}>
       {children}
     </DataContext.Provider>
   );

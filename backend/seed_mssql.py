@@ -1,14 +1,19 @@
 import pyodbc
 import csv
 import os
+from dotenv import load_dotenv
 
-# --- CONFIGURE YOUR CONNECTION ---
+# Load environment variables
+load_dotenv()
+
+# --- CONFIGURE YOUR CONNECTION (SECURE) ---
+# Now uses the same .env variables as your app.py
 CONN_STR = (
     r'DRIVER={ODBC Driver 17 for SQL Server};'
-    r'SERVER=139.99.183.1\SQL2019;'
-    r'DATABASE=kailash_yogawalk;'
-    r'UID=solomon.s;'
-    r'PWD=87wbc9F_;'
+    f'SERVER={os.getenv("DB_SERVER")};'
+    f'DATABASE={os.getenv("DB_DATABASE")};'
+    f'UID={os.getenv("DB_USER")};'
+    f'PWD={os.getenv("DB_PASSWORD")};'
 )
 
 def get_connection():
@@ -24,7 +29,6 @@ def reset_tables(conn):
     print("🔄 Resetting database tables...")
 
     # 1. Drop old tables (Order matters due to Foreign Keys!)
-    # We drop ReflectionQuestions first because it depends on WalkThemes
     cursor.execute("DROP TABLE IF EXISTS ReflectionQuestions")
     cursor.execute("DROP TABLE IF EXISTS WalkThemes")
     # We drop Poses last
@@ -50,18 +54,21 @@ def reset_tables(conn):
         )
     ''')
 
-    # 4. Create QUESTIONS Table
+    # 4. Create QUESTIONS Table (UPDATED FOR 3 QUESTIONS)
     cursor.execute('''
         CREATE TABLE ReflectionQuestions (
             QuestionID INT IDENTITY(1,1) PRIMARY KEY,
             ThemeID INT NOT NULL,
-            QuestionText NVARCHAR(500) NOT NULL,
+            QuestionNumber INT,
+            OriginalQuestion NVARCHAR(MAX) NOT NULL,
+            FollowupQuestion1 NVARCHAR(MAX),
+            FollowupQuestion2 NVARCHAR(MAX),
             FOREIGN KEY (ThemeID) REFERENCES WalkThemes(ThemeID)
         )
     ''')
 
     conn.commit()
-    print("✅ All tables (Poses, Themes, Questions) created successfully.")
+    print("✅ All tables (Poses, Themes, Questions [3-Part]) created successfully.")
 
 def seed_poses(conn):
     """Reads poses.csv and inserts into DB."""
@@ -96,54 +103,60 @@ def seed_poses(conn):
         print(f"❌ Error seeding poses: {e}")
 
 def seed_reflections(conn):
-    """Reads Walks.csv and inserts Themes + Questions."""
+    """Reads 3Qwalks.csv and inserts Themes + 3-Part Questions."""
     cursor = conn.cursor()
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(current_dir, 'Walks.csv')
+    
+    # Reading from your new local file '3Qwalks.csv'
+    csv_path = os.path.join(current_dir, '3Qwalks.csv')
 
     if not os.path.exists(csv_path):
-        print(f"⚠️  Skipping Reflections: {csv_path} not found.")
+        print(f"⚠️  Skipping Reflections: {csv_path} not found. Please ensure '3Qwalks.csv' is in the backend folder.")
         return
 
     print(f"📂 Reading Reflections from: {csv_path}")
     try:
-        with open(csv_path, 'r', encoding='utf-8-sig') as f:
+        with open(csv_path, 'r', encoding='cp1252') as f:
             reader = csv.DictReader(f)
             
-            # The CSV headers are the Themes (e.g., "WALK OF HAPPINESS")
-            themes = reader.fieldnames
-            
-            # 1. Create Themes and store their IDs
-            theme_map = {} # {'WALK OF HAPPINESS': 1, ...}
-            
-            for theme_name in themes:
-                clean_title = theme_name.strip().title() # Convert "WALK OF HAPPINESS" -> "Walk Of Happiness"
-                cursor.execute("INSERT INTO WalkThemes (Title) VALUES (?)", clean_title)
-                cursor.execute("SELECT @@IDENTITY")
-                theme_id = cursor.fetchone()[0]
-                theme_map[theme_name] = theme_id
-            
-            print(f"   ✅ Created {len(theme_map)} themes.")
-
-            # 2. Collect Questions
-            # The CSV has questions in columns. We iterate rows, and for each column, grab the question.
+            # Helper to map Theme Names -> IDs to avoid duplicates
+            theme_map = {} 
             questions_to_insert = []
-            
+
             for row in reader:
-                for theme_header, question_text in row.items():
-                    if question_text and str(question_text).strip(): # Check if not empty
-                        theme_id = theme_map.get(theme_header)
-                        if theme_id:
-                            questions_to_insert.append((theme_id, question_text.strip()))
+                raw_theme = row.get('Theme', '').strip()
+                if not raw_theme: continue
+
+                # 1. Handle Theme Creation
+                if raw_theme not in theme_map:
+                    clean_title = raw_theme.title()
+                    cursor.execute("INSERT INTO WalkThemes (Title) VALUES (?)", clean_title)
+                    cursor.execute("SELECT @@IDENTITY")
+                    theme_id = cursor.fetchone()[0]
+                    theme_map[raw_theme] = theme_id
+                
+                theme_id = theme_map[raw_theme]
+
+                # 2. Prepare Question Data
+                # Adjust these keys if your CSV headers are slightly different
+                q_num = row.get('Question_Number')
+                q1 = row.get('Original_Question', '').strip()
+                q2 = row.get('Followup_1_Anchor', '').strip()
+                q3 = row.get('Followup_2_Action+Accountability', '').strip()
+
+                if q1:
+                    questions_to_insert.append((theme_id, q_num, q1, q2, q3))
+
+            print(f"   ✅ Created {len(theme_map)} themes.")
 
             # 3. Bulk Insert Questions
             cursor.executemany('''
-                INSERT INTO ReflectionQuestions (ThemeID, QuestionText)
-                VALUES (?, ?)
+                INSERT INTO ReflectionQuestions (ThemeID, QuestionNumber, OriginalQuestion, FollowupQuestion1, FollowupQuestion2)
+                VALUES (?, ?, ?, ?, ?)
             ''', questions_to_insert)
             
             conn.commit()
-            print(f"   ✅ Seeded {len(questions_to_insert)} reflection questions.")
+            print(f"   ✅ Seeded {len(questions_to_insert)} reflection sets.")
 
     except Exception as e:
         print(f"❌ Error seeding reflections: {e}")
@@ -153,6 +166,6 @@ if __name__ == "__main__":
     if connection:
         reset_tables(connection)      # 1. Drop & Recreate
         seed_poses(connection)        # 2. Add Poses
-        seed_reflections(connection)  # 3. Add Reflections
+        seed_reflections(connection)  # 3. Add 3-Part Reflections
         connection.close()
         print("\n🎉 Database setup complete!")

@@ -1,11 +1,16 @@
 import pyodbc
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 CONN_STR = (
     r'DRIVER={ODBC Driver 17 for SQL Server};'
-    r'SERVER=139.99.183.1\SQL2019;'
-    r'DATABASE=kailash_yogawalk;'
-    r'UID=solomon.s;'
-    r'PWD=87wbc9F_;'
+    f'SERVER={os.getenv("DB_SERVER")};'
+    f'DATABASE={os.getenv("DB_DATABASE")};'
+    f'UID={os.getenv("DB_USER")};'
+    f'PWD={os.getenv("DB_PASSWORD")};'
 )
 
 def add_table():

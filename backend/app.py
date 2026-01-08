@@ -97,9 +97,18 @@ def get_theme_questions(theme_id):
     conn = get_db()
     try:
         cursor = conn.cursor()
-        query = "SELECT TOP 5 QuestionText FROM ReflectionQuestions WHERE ThemeID = ? ORDER BY NEWID()"
+        # UPDATED: Fetch all 3 parts of the question
+        query = "SELECT TOP 5 OriginalQuestion, FollowupQuestion1, FollowupQuestion2 FROM ReflectionQuestions WHERE ThemeID = ? ORDER BY NEWID()"
         cursor.execute(query, theme_id)
-        questions = [row.QuestionText for row in cursor.fetchall()]
+        
+        questions = []
+        for row in cursor.fetchall():
+            questions.append({
+                "q1": row.OriginalQuestion,
+                "q2": row.FollowupQuestion1,
+                "q3": row.FollowupQuestion2
+            })
+            
         return jsonify(questions)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -163,6 +172,7 @@ def walk_complete():
         poses_done = int(data["checkpoints_completed"])
         steps_est = int(distance * 1250)
         calories_est = int(distance * 60)
+        walk_date = datetime.now() # Explicitly capture time
         
         reflections = data.get("reflections_data", [])
 
@@ -171,10 +181,10 @@ def walk_complete():
         
         SQL_INSERT = """
             INSERT INTO WalkHistory 
-            (DistanceKm, DurationMinutes, CaloriesBurned, PosesCompleted, StepsEstimated, Notes)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (DistanceKm, DurationMinutes, CaloriesBurned, PosesCompleted, StepsEstimated, Notes, WalkDate)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """
-        cursor.execute(SQL_INSERT, distance, duration_min, calories_est, poses_done, steps_est, 'Yoga Walk Session')
+        cursor.execute(SQL_INSERT, distance, duration_min, calories_est, poses_done, steps_est, 'Yoga Walk Session', walk_date)
         
         cursor.execute("SELECT @@IDENTITY")
         row = cursor.fetchone()

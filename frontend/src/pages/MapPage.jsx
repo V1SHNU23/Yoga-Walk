@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom"; 
+import { useAppData } from "../contexts/DataContext";
 import {
   MapContainer,
   TileLayer,
@@ -17,7 +18,7 @@ import UserLocationFillIcon from "../icons/User-Location-Fill.svg";
 import TickIcon from "../icons/tick.svg"; 
 import VolumeIcon from "../icons/volume.svg";
 import MuteIcon from "../icons/mute.svg";
-import SearchIcon from "../icons/search.svg"; // NEW IMPORT
+import SearchIcon from "../icons/search.svg"; 
 
 import WalkSummaryCard from "../components/WalkSummaryCard";
 
@@ -266,7 +267,6 @@ function SearchFocusView({
     >
         <div className="search-focus-header">
             <div className="search-focus-input-wrapper">
-                {/* CHANGED: Use SearchIcon instead of dot */}
                 <img 
                   src={SearchIcon} 
                   alt="Search" 
@@ -561,6 +561,7 @@ function createStreetNameIcon(streetName) {
 
 export default function MapPage() {
   const location = useLocation(); 
+  const { refreshData } = useAppData();
   const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
   
   const [map, setMap] = useState(null);
@@ -588,9 +589,12 @@ export default function MapPage() {
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const [visitedIndices, setVisitedIndices] = useState(new Set()); 
 
-  // --- REFLECTION STATE ---
+  // --- REFLECTION STATE (UPDATED FOR 3 ANSWERS) ---
   const [reflections, setReflections] = useState({}); 
-  const [tempReflection, setTempReflection] = useState(""); 
+  const [tempAnswers, setTempAnswers] = useState({ a1: "", a2: "", a3: "" });
+  
+  // NEW: Track which step of the reflection we are on (1, 2, or 3)
+  const [questionStep, setQuestionStep] = useState(1);
   
   // --- SWIPEABLE CARD STATE ---
   const [activeSlide, setActiveSlide] = useState(0); 
@@ -609,7 +613,7 @@ export default function MapPage() {
   const isWalkingRef = useRef(isWalking);
   const showStreetNamesRef = useRef(false);
   
-  // --- FOCUS SEARCH STATE (The New Logic) ---
+  // --- FOCUS SEARCH STATE ---
   const [activeSearchField, setActiveSearchField] = useState(null); // 'origin' | 'destination' | null
 
   useEffect(() => {
@@ -760,7 +764,6 @@ export default function MapPage() {
   // --- EFFECTS ---
   
   useEffect(() => {
-    // Only fetch if we have a valid route and aren't walking yet
     if (isWalking || routes.length === 0 || !origin || !destination) return;
     if (activeRoutine) return;
 
@@ -830,10 +833,19 @@ export default function MapPage() {
     }
   }, [map, userLocation, hasCenteredOnLoad]);
 
+  // UPDATED: Load previous answers (if any) when a checkpoint is opened
   useEffect(() => {
     if (selectedCheckpoint) {
       setActiveSlide(0);
-      setTempReflection(reflections[selectedCheckpoint.index] || "");
+      setQuestionStep(1); // RESET the Question Step to 1 on open
+      
+      const prev = reflections[selectedCheckpoint.index] || {};
+      setTempAnswers({
+        a1: prev.a1 || "",
+        a2: prev.a2 || "",
+        a3: prev.a3 || ""
+      });
+
       if (slidesRef.current) {
         slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
       }
@@ -1572,13 +1584,26 @@ export default function MapPage() {
     setSheetOpen(false);
   };
 
+  // UPDATED: Save Logic to handle flattened list of 3 questions
   const handleSaveAndClose = async () => {
     try {
-        const reflectionsData = Object.entries(reflections).map(([key, answer]) => {
+        const reflectionsData = [];
+        
+        Object.entries(reflections).forEach(([key, answersObj]) => {
              const idx = Number(key);
              const cpIndex = idx - 1; 
-             const question = checkpoints[cpIndex]?.reflection_question || "Reflection";
-             return { question, answer };
+             const qSet = checkpoints[cpIndex]?.reflection_question;
+             
+             // Check for each answer part
+             if (answersObj.a1) {
+                reflectionsData.push({ question: qSet?.q1 || "Question 1", answer: answersObj.a1 });
+             }
+             if (answersObj.a2) {
+                reflectionsData.push({ question: qSet?.q2 || "Question 2", answer: answersObj.a2 });
+             }
+             if (answersObj.a3) {
+                reflectionsData.push({ question: qSet?.q3 || "Question 3", answer: answersObj.a3 });
+             }
         });
 
         await fetch(`${apiBase}/api/walk_complete`, {
@@ -1594,6 +1619,7 @@ export default function MapPage() {
             }),
         });
         console.log("Walk & Reflections saved successfully!");
+        await refreshData();
     } catch (e) {
         console.error("Save failed", e);
     }
@@ -1633,11 +1659,12 @@ export default function MapPage() {
     }
   }
 
+  // UPDATED: Save the tempAnswers object to the reflections map
   const handleCompleteCheckpoint = () => {
     if (selectedCheckpoint) {
         setReflections(prev => ({
             ...prev,
-            [selectedCheckpoint.index]: tempReflection
+            [selectedCheckpoint.index]: tempAnswers
         }));
     }
     setSelectedCheckpoint(null);
@@ -2041,25 +2068,101 @@ export default function MapPage() {
                 </div>
               </div>
 
-              <div className="cp-slide">
+              {/* UPDATED: Slide 3 with STEP-BY-STEP logic */}
+              <div className="cp-slide" style={{ overflowY: 'auto', paddingBottom: '20px' }}>
                 <div className="cp-question-container">
                   <span className="cp-question-icon">🤔</span>
-                  <p className="cp-question-text">
-                     {selectedCheckpoint.reflection_question || "How did your body feel while holding this pose?"}
-                  </p>
+                  <h3 className="cp-benefits-title" style={{margin: 0}}>
+                    Reflections ({questionStep}/3)
+                  </h3>
                 </div>
-                <textarea 
-                    className="cp-reflection-input cp-reflection-textarea"
-                    placeholder="Type your thoughts here..."
-                    value={tempReflection}
-                    onChange={(e) => setTempReflection(e.target.value)}
-                />
-                <button 
-                  className="cp-complete-block-btn"
-                  onClick={handleCompleteCheckpoint}
-                >
-                  Complete Checkpoint
-                </button>
+                
+                {/* STEP 1: Question 1 */}
+                {questionStep === 1 && (
+                    <div className="cp-question-block" style={{marginBottom:'15px'}}>
+                        <p className="cp-question-text" style={{fontSize:'14px', fontWeight:'600', marginBottom:'5px', color:'#125316'}}>
+                            1. {selectedCheckpoint.reflection_question?.q1 || "Deep Reflection"}
+                        </p>
+                        <textarea 
+                            className="cp-reflection-input"
+                            style={{minHeight:'80px', fontSize:'14px', width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)'}}
+                            placeholder="Your thoughts..."
+                            value={tempAnswers.a1}
+                            onChange={(e) => setTempAnswers({...tempAnswers, a1: e.target.value})}
+                        />
+                        <div style={{marginTop: '15px', textAlign: 'right'}}>
+                            <button 
+                              className="cp-complete-block-btn"
+                              style={{width: 'auto', padding: '10px 20px', fontSize: '14px'}}
+                              onClick={() => setQuestionStep(2)}
+                            >
+                              Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* STEP 2: Question 2 */}
+                {questionStep === 2 && (
+                    <div className="cp-question-block" style={{marginBottom:'15px'}}>
+                        <p className="cp-question-text" style={{fontSize:'14px', fontWeight:'600', marginBottom:'5px', color:'#125316'}}>
+                            2. {selectedCheckpoint.reflection_question?.q2 || "Follow Up"}
+                        </p>
+                        <textarea 
+                            className="cp-reflection-input"
+                            style={{minHeight:'80px', fontSize:'14px', width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)'}}
+                            placeholder="Dig deeper..."
+                            value={tempAnswers.a2}
+                            onChange={(e) => setTempAnswers({...tempAnswers, a2: e.target.value})}
+                        />
+                         <div style={{marginTop: '15px', display: 'flex', justifyContent: 'space-between'}}>
+                             <button 
+                                style={{background:'transparent', border:'none', color:'#666', fontWeight:'600'}}
+                                onClick={() => setQuestionStep(1)}
+                             >
+                                Back
+                             </button>
+                            <button 
+                              className="cp-complete-block-btn"
+                              style={{width: 'auto', padding: '10px 20px', fontSize: '14px'}}
+                              onClick={() => setQuestionStep(3)}
+                            >
+                              Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* STEP 3: Question 3 */}
+                {questionStep === 3 && (
+                    <div className="cp-question-block" style={{marginBottom:'20px'}}>
+                        <p className="cp-question-text" style={{fontSize:'14px', fontWeight:'600', marginBottom:'5px', color:'#125316'}}>
+                            3. {selectedCheckpoint.reflection_question?.q3 || "Action"}
+                        </p>
+                        <textarea 
+                            className="cp-reflection-input"
+                            style={{minHeight:'80px', fontSize:'14px', width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)'}}
+                            placeholder="Actionable step..."
+                            value={tempAnswers.a3}
+                            onChange={(e) => setTempAnswers({...tempAnswers, a3: e.target.value})}
+                        />
+                         <div style={{marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                             <button 
+                                style={{background:'transparent', border:'none', color:'#666', fontWeight:'600'}}
+                                onClick={() => setQuestionStep(2)}
+                             >
+                                Back
+                             </button>
+                            <button 
+                              className="cp-complete-block-btn"
+                              style={{width: 'auto', padding: '10px 20px', fontSize: '14px'}}
+                              onClick={handleCompleteCheckpoint}
+                            >
+                              Save & Complete
+                            </button>
+                        </div>
+                    </div>
+                )}
               </div>
             </div>
 
