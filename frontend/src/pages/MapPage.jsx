@@ -1446,8 +1446,8 @@ export default function MapPage() {
         countToUse = activeRoutine.poses.length;
       } else {
         const distanceKm = selectedRoute.distance / 1000;
-        // Default: 1 per km, minimum 1
-        countToUse = Math.max(1, Math.round(distanceKm));
+        // Default: 1 per km, minimum 1, MAXIMUM 10
+        countToUse = Math.min(10, Math.max(1, Math.round(distanceKm)));
         setCheckpointCount(countToUse); // Update the slider UI
       }
       

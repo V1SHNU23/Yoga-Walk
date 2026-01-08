@@ -4,48 +4,34 @@ import "../styles/history.css";
 import "../styles/profile.css"; 
 import BackIcon from "../icons/back.svg";
 import SearchIcon from "../icons/search.svg";
-import TickIcon from "../icons/tick.svg"; // Added for benefits/reflections
+import { useAppData } from "../contexts/DataContext"; 
 
 export default function HistoryPage({ onBack }) {
-  // --- EXISTING STATE ---
-  const [history, setHistory] = useState([]);
-  const [filteredHistory, setFilteredHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // 1. Get Global Data
+  const { history, loading } = useAppData(); 
+
+  // 2. Initialize Logic (CRITICAL FIX)
+  // Initialize directly from the context history. 
+  // If context history has data (from cache), this will be populated INSTANTLY.
+  const [filteredHistory, setFilteredHistory] = useState(history || []);
   
-  // Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
 
-  // --- NEW STATE FOR DETAILS ---
+  // Details State
   const [selectedWalk, setSelectedWalk] = useState(null);
   const [walkReflections, setWalkReflections] = useState([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
-
   const apiBase = "http://localhost:5000";
 
-  // 1. Fetch History List (Existing)
+  // 3. Keep Filter Syncing
+  // This ensures that if the background fetch updates 'history', our list updates too.
   useEffect(() => {
-    fetch(`${apiBase}/api/walk_history`)
-      .then((res) => res.json())
-      .then((data) => {
-        const list = data.history || [];
-        setHistory(list);
-        setFilteredHistory(list); 
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, []);
-
-  // 2. Filter Logic (Existing)
-  useEffect(() => {
-    let result = history;
+    let result = history || []; 
 
     if (selectedDate) {
       result = result.filter(walk => 
-        walk.WalkDate.startsWith(selectedDate)
+        walk.WalkDate && walk.WalkDate.startsWith(selectedDate)
       );
     }
 
@@ -55,17 +41,14 @@ export default function HistoryPage({ onBack }) {
         const dateStr = new Date(walk.WalkDate).toDateString().toLowerCase();
         const distStr = `${walk.DistanceKm} km`;
         const durStr = `${walk.DurationMinutes} min`;
-        
-        return dateStr.includes(lowerQuery) || 
-               distStr.includes(lowerQuery) || 
-               durStr.includes(lowerQuery);
+        return dateStr.includes(lowerQuery) || distStr.includes(lowerQuery) || durStr.includes(lowerQuery);
       });
     }
 
     setFilteredHistory(result);
   }, [searchQuery, selectedDate, history]);
 
-  // 3. NEW: Fetch Reflections when a walk is clicked
+  // 4. Fetch Details Logic
   useEffect(() => {
     if (selectedWalk) {
         setLoadingDetails(true);
@@ -88,11 +71,16 @@ export default function HistoryPage({ onBack }) {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-  // --- VIEW 1: DETAIL VIEW (New) ---
+  // 5. Smart Loading Check
+  // IF we have history data, we are NOT loading. We show the data immediately.
+  // We only show "Loading..." if the list is empty AND we are waiting for the server.
+  const hasData = history && history.length > 0;
+  const isListLoading = loading && !hasData;
+
+  // --- DETAIL VIEW ---
   if (selectedWalk) {
     return (
       <div className="historyPage">
-        {/* Detail Header */}
         <div className="historyHeader">
           <button className="historyBackBtn" onClick={() => setSelectedWalk(null)}>
             <img src={BackIcon} alt="Back" />
@@ -100,9 +88,7 @@ export default function HistoryPage({ onBack }) {
           <h2 className="historyPageTitle">Walk Details</h2>
           <div style={{width: '32px'}}></div>
         </div>
-
         <div className="historyContent" style={{ paddingTop: '16px' }}>
-             {/* Big Green Summary Card */}
              <div style={{ 
                 background: 'linear-gradient(135deg, #61b329 0%, #4d9920 100%)', 
                 borderRadius: '20px', 
@@ -134,7 +120,6 @@ export default function HistoryPage({ onBack }) {
                 </div>
             </div>
 
-            {/* Reflections List */}
             <h3 style={{ color: '#0a6f00', fontSize: '18px', margin: '0 0 12px 4px' }}>Your Reflections</h3>
             
             {loadingDetails ? (
@@ -170,10 +155,9 @@ export default function HistoryPage({ onBack }) {
     );
   }
 
-  // --- VIEW 2: LIST VIEW (Existing) ---
+  // --- LIST VIEW ---
   return (
     <div className="historyPage">
-      {/* HEADER */}
       <div className="historyHeader">
         <button className="historyBackBtn" onClick={onBack}>
           <img src={BackIcon} alt="Back" />
@@ -182,7 +166,6 @@ export default function HistoryPage({ onBack }) {
         <div style={{width: '32px'}}></div> 
       </div>
 
-      {/* FILTER BAR */}
       <div className="historyFilters">
         <div className="searchWrapper">
           <img src={SearchIcon} className="searchIcon" alt="Search" />
@@ -203,9 +186,8 @@ export default function HistoryPage({ onBack }) {
         />
       </div>
 
-      {/* LIST CONTENT */}
       <div className="historyContent">
-        {loading ? (
+        {isListLoading ? (
           <p className="statusText">Loading history...</p>
         ) : filteredHistory.length === 0 ? (
           <div className="emptyState">
@@ -219,7 +201,6 @@ export default function HistoryPage({ onBack }) {
           </div>
         ) : (
           filteredHistory.map((walk) => (
-            // ADD onClick HANDLER HERE
             <div key={walk.WalkID} onClick={() => setSelectedWalk(walk)} style={{ cursor: 'pointer' }}>
                 <Card className="profileCard historyCardItem">
                   <div className="historyLeft">
@@ -235,7 +216,6 @@ export default function HistoryPage({ onBack }) {
                     <div className="historyValue">{walk.DistanceKm.toFixed(2)} km</div>
                     <div className="historySubValue">{walk.DurationMinutes} min</div>
                   </div>
-                  {/* Chevron to indicate clickability */}
                   <div style={{ marginLeft: '10px', color: '#ccc', fontSize: '18px' }}>›</div>
                 </Card>
             </div>
