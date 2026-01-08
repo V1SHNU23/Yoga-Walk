@@ -782,6 +782,10 @@
   gap: 12px;
 }
 
+.cp-reflection-block {
+  margin-bottom: 22px;
+}
+
 /* The Emoji Icon */
 .cp-question-icon {
   font-size: 48px;

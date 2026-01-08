@@ -590,7 +590,12 @@ export default function MapPage() {
 
   // --- REFLECTION STATE ---
   const [reflections, setReflections] = useState({}); 
-  const [tempReflection, setTempReflection] = useState(""); 
+  const [tempReflection, setTempReflection] = useState([]); 
+  const defaultReflectionQuestions = [
+    "How did your body feel while holding this pose?",
+    "What did you notice about your breath or mindset?",
+    "What is one small action you will take after this walk?"
+  ];
   
   // --- SWIPEABLE CARD STATE ---
   const [activeSlide, setActiveSlide] = useState(0); 
@@ -745,9 +750,12 @@ export default function MapPage() {
               const qRes = await fetch(`${apiBase}/api/theme/${selectedThemeId}/questions`);
               const questions = await qRes.json();
               if (questions && questions.length > 0) {
+                    const normalizedQuestions = questions.map((questionSet) => (
+                        Array.isArray(questionSet) ? questionSet : [questionSet]
+                    ));
                     finalCheckpoints = finalCheckpoints.map((cp, i) => ({
                         ...cp,
-                        reflection_question: questions[i % questions.length] 
+                        reflection_questions: normalizedQuestions[i % normalizedQuestions.length] 
                     }));
               }
           } catch (qErr) {
@@ -832,8 +840,11 @@ export default function MapPage() {
 
   useEffect(() => {
     if (selectedCheckpoint) {
+      const questions = selectedCheckpoint.reflection_questions?.length
+        ? selectedCheckpoint.reflection_questions
+        : defaultReflectionQuestions;
       setActiveSlide(0);
-      setTempReflection(reflections[selectedCheckpoint.index] || "");
+      setTempReflection(reflections[selectedCheckpoint.index] || questions.map(() => ""));
       if (slidesRef.current) {
         slidesRef.current.scrollTo({ left: 0, behavior: 'auto' });
       }
@@ -1574,12 +1585,16 @@ export default function MapPage() {
 
   const handleSaveAndClose = async () => {
     try {
-        const reflectionsData = Object.entries(reflections).map(([key, answer]) => {
+        const reflectionsData = Object.entries(reflections).flatMap(([key, answerSet]) => {
              const idx = Number(key);
              const cpIndex = idx - 1; 
-             const question = checkpoints[cpIndex]?.reflection_question || "Reflection";
-             return { question, answer };
-        });
+             const questions = checkpoints[cpIndex]?.reflection_questions || ["Reflection"];
+             const answers = Array.isArray(answerSet) ? answerSet : [answerSet];
+             return answers.map((answer, answerIndex) => ({
+                 question: questions[answerIndex] || "Reflection",
+                 answer
+             }));
+        }).filter(({ answer }) => answer && String(answer).trim());
 
         await fetch(`${apiBase}/api/walk_complete`, {
             method: "POST",
@@ -2042,18 +2057,29 @@ export default function MapPage() {
               </div>
 
               <div className="cp-slide">
-                <div className="cp-question-container">
-                  <span className="cp-question-icon">🤔</span>
-                  <p className="cp-question-text">
-                     {selectedCheckpoint.reflection_question || "How did your body feel while holding this pose?"}
-                  </p>
-                </div>
-                <textarea 
-                    className="cp-reflection-input cp-reflection-textarea"
-                    placeholder="Type your thoughts here..."
-                    value={tempReflection}
-                    onChange={(e) => setTempReflection(e.target.value)}
-                />
+                {(selectedCheckpoint.reflection_questions?.length
+                  ? selectedCheckpoint.reflection_questions
+                  : defaultReflectionQuestions
+                  ).map((question, index) => (
+                  <div key={`${selectedCheckpoint.index}-question-${index}`} className="cp-reflection-block">
+                    <div className="cp-question-container">
+                      <span className="cp-question-icon">🤔</span>
+                      <p className="cp-question-text">{question}</p>
+                    </div>
+                    <textarea 
+                        className="cp-reflection-input cp-reflection-textarea"
+                        placeholder="Type your thoughts here..."
+                        value={tempReflection[index] || ""}
+                        onChange={(e) => {
+                          setTempReflection((prev) => {
+                            const next = [...prev];
+                            next[index] = e.target.value;
+                            return next;
+                          });
+                        }}
+                    />
+                  </div>
+                ))}
                 <button 
                   className="cp-complete-block-btn"
                   onClick={handleCompleteCheckpoint}

@@ -5,6 +5,8 @@ from datetime import datetime
 import json
 import os
 from dotenv import load_dotenv
+import random
+from collections import defaultdict
 
 # Load environment variables from .env file
 load_dotenv()
@@ -97,10 +99,23 @@ def get_theme_questions(theme_id):
     conn = get_db()
     try:
         cursor = conn.cursor()
-        query = "SELECT TOP 5 QuestionText FROM ReflectionQuestions WHERE ThemeID = ? ORDER BY NEWID()"
+        query = """
+            SELECT QuestionNumber, QuestionOrder, QuestionText
+            FROM ReflectionQuestions
+            WHERE ThemeID = ?
+        """
         cursor.execute(query, theme_id)
-        questions = [row.QuestionText for row in cursor.fetchall()]
-        return jsonify(questions)
+        questions = defaultdict(list)
+        for row in cursor.fetchall():
+            questions[row.QuestionNumber].append((row.QuestionOrder, row.QuestionText))
+        question_sets = []
+        for question_number in sorted(questions.keys()):
+            ordered_questions = [
+                text for _, text in sorted(questions[question_number], key=lambda item: item[0] or 0)
+            ]
+            question_sets.append(ordered_questions)
+        random.shuffle(question_sets)
+        return jsonify(question_sets)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
