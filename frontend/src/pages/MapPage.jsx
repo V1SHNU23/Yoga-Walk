@@ -2258,13 +2258,14 @@ export default function MapPage() {
                    Now these just open the focus view. No dropdowns here.
                 */}
                 {!showRouteSelection && !showDirections && (
-                  <div className="abstract-timeline">
-                    <Reorder.Group 
-                      axis="y" 
-                      values={fieldOrder} 
-                      onReorder={handleReorder} 
-                      className="reorder-list"
-                    >
+                  <>
+                    <div className="abstract-timeline">
+                      <Reorder.Group 
+                        axis="y" 
+                        values={fieldOrder} 
+                        onReorder={handleReorder} 
+                        className="reorder-list"
+                      >
                         {fieldOrder.map((item) => (
                           <DraggableItem key={item} value={item}>
                             {(dragControls) => (
@@ -2286,7 +2287,25 @@ export default function MapPage() {
                           </DraggableItem>
                         ))}
                       </Reorder.Group>
-                  </div>
+                    </div>
+
+                    {/* Theme Selector - shown after origin/destination are selected */}
+                    {origin && destination && (
+                      <div className="theme-selector-container">
+                        <label className="themeLabel">Theme</label>
+                        <select
+                          className="themeSelect"
+                          value={selectedThemeId || ""}
+                          onChange={(e) => setSelectedThemeId(e.target.value)}
+                        >
+                          <option value="">-- Random Mix --</option>
+                          {themes.map(theme => (
+                            <option key={theme.id} value={theme.id}>{theme.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* LINEAR FLOW STEP 2: ROUTE SELECTION + CHECKPOINT SLIDER */}
@@ -2358,22 +2377,6 @@ export default function MapPage() {
                                Checkpoints locked to routine.
                             </p>
                         )}
-
-                        <div className="theme-selector">
-                          <label className="theme-selector-label">
-                            🧠 Reflection Theme
-                          </label>
-                          <select 
-                            value={selectedThemeId || ""} 
-                            onChange={(e) => setSelectedThemeId(e.target.value)}
-                            className="theme-selector-select"
-                          >
-                            <option value="">-- Random Mix --</option>
-                            {themes.map(t => (
-                                <option key={t.id} value={t.id}>{t.title}</option>
-                            ))}
-                          </select>
-                        </div>
                     </div>
                   </div>
                 )}

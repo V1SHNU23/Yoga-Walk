@@ -4,7 +4,7 @@ import "../styles/transition.css";
 
 const PREP_MESSAGES = [
   "💧 Grab your water...",
-  "🎧 Connect headphones...",
+  "🎧 Connect your headphones...",
   "🔋 Check your battery...",
 ];
 

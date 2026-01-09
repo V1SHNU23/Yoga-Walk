@@ -1366,6 +1366,45 @@
   cursor: pointer;
 }
 
+/* Theme Selector Container (after origin/destination) */
+.theme-selector-container {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.themeLabel {
+  font-size: 12px;
+  color: #6a7a6e;
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.themeSelect {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f3d1f;
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  transition: all 0.2s ease;
+}
+
+.themeSelect:hover {
+  border-color: #61b329;
+  box-shadow: 0 2px 10px rgba(97, 179, 41, 0.1);
+}
+
+.themeSelect:focus {
+  border-color: #61b329;
+  box-shadow: 0 2px 12px rgba(97, 179, 41, 0.15);
+}
+
 /* --- Routes Container Spacing --- */
 .routes-container-spacing {
   margin-top: 20px;
