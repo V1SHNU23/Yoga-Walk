@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom"; 
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion"; 
+import { motion, useMotionValue, useTransform, AnimatePresence, useDragControls } from "framer-motion"; 
 import Card from "../components/Card.jsx";
 import AnimatedList from "../components/AnimatedList.jsx";
 import SearchIcon from "../icons/search.svg";
@@ -136,6 +136,7 @@ export default function LibPage() {
   const navigate = useNavigate(); 
   const [activeTab, setActiveTab] = useState("poses");
   const [query, setQuery] = useState("");
+  const [sheetPoseQuery, setSheetPoseQuery] = useState(""); // Search query for bottom sheet
   
   // --- DATA STATE ---
   const [poses, setPoses] = useState([]); 
@@ -145,18 +146,35 @@ export default function LibPage() {
   // --- SELECTION STATE ---
   const [selectedPose, setSelectedPose] = useState(null);       
   const [selectedRoutine, setSelectedRoutine] = useState(null); 
-  const [routineToDelete, setRoutineToDelete] = useState(null); 
+  const [routineToDelete, setRoutineToDelete] = useState(null);
 
   // --- BUILDER STATE ---
   const [isCreating, setIsCreating] = useState(false);
+  const [isRoutineSheetOpen, setIsRoutineSheetOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftPoses, setDraftPoses] = useState([]);
-  const [draftCover, setDraftCover] = useState(null); 
+  const [draftCover, setDraftCover] = useState(null);
+  
+  // --- DRAG STATE FOR BOTTOM SHEET ---
+  const sheetRef = useRef(null);
+  const dragControls = useDragControls(); 
 
   // --- INITIAL LOAD ---
   useEffect(() => {
     fetchData();
   }, []);
+
+  // --- LOCK BODY SCROLL WHEN SHEET IS OPEN ---
+  useEffect(() => {
+    if (isRoutineSheetOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isRoutineSheetOpen]);
 
   function fetchData() {
     setLoading(true);
@@ -289,9 +307,11 @@ export default function LibPage() {
         if (res.ok) {
             fetchData();
             setIsCreating(false);
+            setIsRoutineSheetOpen(false);
             setDraftTitle("");
             setDraftPoses([]);
             setDraftCover(null);
+            setSheetPoseQuery(""); // Reset sheet search
             setActiveTab("routines");
         } else {
             console.error("Save Error:", data);
@@ -340,6 +360,12 @@ export default function LibPage() {
     return pose.name.toLowerCase().includes(query.toLowerCase());
   });
 
+  // --- FILTERING FOR SHEET ---
+  const sheetVisiblePoses = poses.filter((pose) => {
+    if (!sheetPoseQuery) return true;
+    return pose.name.toLowerCase().includes(sheetPoseQuery.toLowerCase());
+  });
+
   // --- RENDER: SINGLE POSE VIEW ---
   if (selectedPose) {
     return (
@@ -383,24 +409,7 @@ export default function LibPage() {
         
         {/* HEADER AREA */}
         <div className="libHeader">
-          {isCreating ? (
-             // BUILDER HEADER
-             <div className="libBuilderHeader">
-                <button 
-                  onClick={() => setIsCreating(false)} 
-                  className="libBtnText libBtnCancel"
-                >
-                   Cancel
-                </button>
-                <span className="libBuilderTitle">New Routine</span>
-                <button 
-                  onClick={handleSaveRoutine} 
-                  className="libBtnText libBtnSave"
-                >
-                   Save
-                </button>
-             </div>
-          ) : activeTab === "routines" && selectedRoutine ? (
+          {activeTab === "routines" && selectedRoutine ? (
              // ROUTINE DETAIL HEADER
              <div className="libHeaderRow">
                 <button 
@@ -420,8 +429,8 @@ export default function LibPage() {
           )}
         </div>
 
-        {/* TABS (Hidden if creating or viewing routine details) */}
-        {!isCreating && (!selectedRoutine) && (
+        {/* TABS (Hidden if viewing routine details) */}
+        {!selectedRoutine && (
           <div className="libTabs">
             <button className={`libTab ${activeTab === "poses" ? "libTabActive" : ""}`} onClick={() => setActiveTab("poses")}>Poses</button>
             <button className={`libTab ${activeTab === "routines" ? "libTabActive" : ""}`} onClick={() => setActiveTab("routines")}>Routines</button>
@@ -432,134 +441,8 @@ export default function LibPage() {
         {/* CONTENT AREA */}
         <div className="libList">
 
-          {/* --- 1. BUILDER UI --- */}
-          {isCreating && (
-            <>
-              {/* DRAFT AREA (Sticky Top) */}
-              <div className="libDraftBoard">
-                 <input 
-                    type="text" 
-                    placeholder="Name your routine..." 
-                    value={draftTitle}
-                    onChange={(e) => setDraftTitle(e.target.value)}
-                    className="libDraftInput"
-                 />
-
-                 {/* UPDATED: COVER IMAGE UPLOADER */}
-                 <div className="libCoverSection">
-                    <span className="libCoverLabel">Cover Image</span>
-                    <div className="libCoverUploadContainer">
-                        <input 
-                           type="file" 
-                           id="coverUploadInput" 
-                           accept="image/*" 
-                           onChange={handleImageUpload}
-                           style={{ display: 'none' }} 
-                        />
-                        
-                        {!draftCover ? (
-                           <label htmlFor="coverUploadInput" className="libCoverUploadBox">
-                              <div className="libCoverUploadIcon">📷</div>
-                              <div className="libCoverUploadText">Tap to upload</div>
-                           </label>
-                        ) : (
-                           <div className="libCoverPreviewWrapper">
-                               <img src={draftCover} alt="Cover Preview" className="libCoverPreviewImg" />
-                               <label htmlFor="coverUploadInput" className="libCoverChangeBtn">
-                                  Change
-                               </label>
-                           </div>
-                        )}
-                    </div>
-                 </div>
-                 
-                 {/* DRAGGABLE POSE LIST */}
-                 {draftPoses.length === 0 ? (
-                    <div className="libDraftEmpty">
-                       Tap "+ Add" on poses below to add them here.
-                    </div>
-                 ) : (
-                    <div className="libDraftList">
-                       {draftPoses.map((p, i) => (
-                          <div key={p.uniqueId} className="libDraftItem">
-                             <div className="libDraftItemThumb">
-                                {p.image ? <img src={p.image} alt={p.name} /> : '🧘'}
-                             </div>
-                             <div className="libDraftItemName">{p.name}</div>
-                             
-                             <button 
-                                className="libDraftItemTimeBtn"
-                                onClick={() => handleCycleDuration(p.uniqueId)}
-                             >
-                                ⏱ {p.duration}
-                             </button>
-
-                             <button 
-                                onClick={() => handleRemoveFromDraft(p.uniqueId)}
-                                className="libDraftRemoveBtn"
-                             >×</button>
-                             <div className="libDraftBadge">
-                                {i + 1}
-                             </div>
-                          </div>
-                       ))}
-                    </div>
-                 )}
-              </div>
-
-              {/* POSE PICKER LIST */}
-              <h3 className="libSectionTitle">
-                 Tap to Add
-              </h3>
-              <AnimatedList
-                  items={visiblePoses}
-                  showGradients={false}
-                  renderItem={(pose) => {
-                    const isAdded = draftPoses.some(p => p.id === pose.id);
-                    return (
-                        <div onClick={() => setSelectedPose(pose)} style={{ cursor: 'pointer', marginBottom: '10px' }}>
-                        <Card className="libPoseCard" style={{ padding: '10px 16px' }}>
-                            <div className="libPoseRow">
-                            <div className="libPoseThumb" style={{ width: '48px', height: '48px' }}>
-                                {pose.image ? <img src={pose.image} alt={pose.name} /> : <span className="libPoseThumbEmoji">🧘</span>}
-                            </div>
-                            <div className="libPoseText">
-                                <div className="libPoseName" style={{ fontSize: '15px' }}>{pose.name}</div>
-                                <div className="libPoseMeta">{pose.duration}</div>
-                            </div>
-                            
-                            {/* --- TOGGLE BUTTON --- */}
-                            <button 
-                                className={`libAddButton ${isAdded ? 'libAddButtonActive' : ''}`}
-                                onClick={(e) => {
-                                    e.stopPropagation(); 
-                                    if (isAdded) {
-                                      // Toggle OFF: Remove from draft
-                                      handleRemoveFromDraftById(pose.id);
-                                    } else {
-                                      // Toggle ON: Add to draft
-                                      handleAddToDraft(pose);
-                                    }
-                                }}
-                            >
-                                {isAdded ? (
-                                    <>
-                                        <img src={TickIcon} alt="Added" style={{width:'14px', marginRight: '6px', filter: 'brightness(10)'}}/>
-                                        Added
-                                    </>
-                                ) : "+ Add"}
-                            </button>
-                            </div>
-                        </Card>
-                        </div>
-                    );
-                  }}
-                />
-            </>
-          )}
-
-          {/* --- 2. POSES TAB --- */}
-          {!isCreating && (activeTab === "poses" || activeTab === "favorites") && (
+          {/* --- 1. POSES TAB --- */}
+          {(activeTab === "poses" || activeTab === "favorites") && (
             <>
               {loading ? <p className="libEmptyState">Loading...</p> : visiblePoses.length > 0 ? (
                 <AnimatedList
@@ -590,14 +473,17 @@ export default function LibPage() {
             </>
           )}
 
-          {/* --- 3. ROUTINES TAB --- */}
-          {!isCreating && activeTab === "routines" && (
+          {/* --- 2. ROUTINES TAB --- */}
+          {activeTab === "routines" && (
             <>
               {!selectedRoutine && (
                 <>
                   {/* CREATE NEW BUTTON */}
                   <div 
-                    onClick={() => setIsCreating(true)}
+                    onClick={() => {
+                      setIsCreating(true);
+                      setIsRoutineSheetOpen(true);
+                    }}
                     className="libCreateNewCard"
                   >
                      <div className="libCreateIcon">+</div>
@@ -663,6 +549,249 @@ export default function LibPage() {
             </>
           )}
         </div>
+
+        {/* BOTTOM SHEET FOR CREATE ROUTINE */}
+        <AnimatePresence>
+          {isRoutineSheetOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                className="libSheetBackdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => {
+                  setIsRoutineSheetOpen(false);
+                  setIsCreating(false);
+                  setSheetPoseQuery(""); // Reset sheet search on backdrop click
+                }}
+              />
+              
+              {/* Bottom Sheet */}
+              <motion.div
+                ref={sheetRef}
+                className={`libRoutineSheet ${isRoutineSheetOpen ? 'libRoutineSheetOpen' : 'libRoutineSheetCollapsed'}`}
+                drag="y"
+                dragControls={dragControls}
+                dragListener={false}
+                dragConstraints={{ top: 0 }}
+                dragElastic={{ top: 0, bottom: 0.5 }}
+                dragDirectionLock={true}
+                onDragStart={() => {
+                  // Cancel any pending onClick handlers when drag starts
+                  if (sheetRef.current?.pendingClickTimeout) {
+                    clearTimeout(sheetRef.current.pendingClickTimeout);
+                    sheetRef.current.pendingClickTimeout = null;
+                  }
+                }}
+                onDragEnd={(e, info) => {
+                  const threshold = 120; // pixels
+                  const viewportThreshold = window.innerHeight * 0.2; // 20% of viewport
+                  const dragThreshold = Math.max(threshold, viewportThreshold);
+                  
+                  // Check if it was a tap (small movement < 10px) or a drag
+                  if (Math.abs(info.offset.y) < 10 && Math.abs(info.velocity.y) < 100) {
+                    // Small movement with low velocity = tap, close the sheet
+                    setIsRoutineSheetOpen(false);
+                    setIsCreating(false);
+                    setSheetPoseQuery(""); // Reset sheet search on tap dismiss
+                  } else if (info.offset.y > dragThreshold || info.velocity.y > 500) {
+                    // Large drag = dismiss
+                    setIsRoutineSheetOpen(false);
+                    setIsCreating(false);
+                    setSheetPoseQuery(""); // Reset sheet search on drag dismiss
+                  }
+                  // Cancel any pending onClick handlers
+                  if (sheetRef.current?.pendingClickTimeout) {
+                    clearTimeout(sheetRef.current.pendingClickTimeout);
+                    sheetRef.current.pendingClickTimeout = null;
+                  }
+                }}
+                initial={{ y: "100%" }}
+                animate={{ y: isRoutineSheetOpen ? 0 : "100%" }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Handle Bar - draggable area */}
+                <div 
+                  className="libRoutineSheetHandle"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    dragControls.start(e);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Fallback: if user clicks without dragging, close after a short delay
+                    // This allows onDragEnd to fire first if there was drag, preventing double-close
+                    if (sheetRef.current) {
+                      sheetRef.current.pendingClickTimeout = setTimeout(() => {
+                        setIsRoutineSheetOpen(false);
+                        setIsCreating(false);
+                        setSheetPoseQuery(""); // Reset sheet search on tap dismiss
+                        sheetRef.current.pendingClickTimeout = null;
+                      }, 200);
+                    }
+                  }}
+                >
+                  <div className="libRoutineSheetHandleBar" />
+                </div>
+
+                {/* Header Row */}
+                <div className="libRoutineSheetHeader">
+                  <button 
+                  onClick={() => {
+                    setIsRoutineSheetOpen(false);
+                    setIsCreating(false);
+                    setSheetPoseQuery(""); // Reset sheet search on cancel
+                  }} 
+                  className="libBtnText libBtnCancel"
+                >
+                  Cancel
+                </button>
+                  <span className="libBuilderTitle">New Routine</span>
+                  <button 
+                    onClick={handleSaveRoutine} 
+                    className="libBtnText libBtnSave"
+                  >
+                    Save
+                  </button>
+                </div>
+
+                {/* Body - Fixed sections + scrollable pose list */}
+                <div className="libRoutineSheetBody">
+                  {/* DRAFT AREA - Fixed, no scroll */}
+                  <div className="libDraftBoard libDraftBoardSheet">
+                    <input 
+                      type="text" 
+                      placeholder="Name your routine..." 
+                      value={draftTitle}
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      className="libDraftInput"
+                    />
+
+                    {/* COVER IMAGE UPLOADER */}
+                    <div className="libCoverSection libCoverSectionSheet">
+                      <span className="libCoverLabel">Cover Image</span>
+                      <div className="libCoverUploadContainer">
+                        <input 
+                          type="file" 
+                          id="coverUploadInput" 
+                          accept="image/*" 
+                          onChange={handleImageUpload}
+                          style={{ display: 'none' }} 
+                        />
+                        
+                        {!draftCover ? (
+                          <label htmlFor="coverUploadInput" className="libCoverUploadBox">
+                            <div className="libCoverUploadIcon">📷</div>
+                            <div className="libCoverUploadText">Tap to upload</div>
+                          </label>
+                        ) : (
+                          <div className="libCoverPreviewWrapper">
+                            <img src={draftCover} alt="Cover Preview" className="libCoverPreviewImg" />
+                            <label htmlFor="coverUploadInput" className="libCoverChangeBtn">
+                              Change
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* DRAGGABLE POSE LIST - Always rendered to reserve space */}
+                    <div className="libDraftListContainer">
+                      {draftPoses.length === 0 ? (
+                        <div className="libDraftEmpty">
+                          Tap "+ Add" on poses below to add them here.
+                        </div>
+                      ) : (
+                        <div className="libDraftList">
+                          {draftPoses.map((p, i) => (
+                            <div key={p.uniqueId} className="libDraftItem">
+                              <div className="libDraftItemThumb">
+                                {p.image ? <img src={p.image} alt={p.name} /> : '🧘'}
+                              </div>
+                              <div className="libDraftItemName">{p.name}</div>
+                              
+                              <button 
+                                className="libDraftItemTimeBtn"
+                                onClick={() => handleCycleDuration(p.uniqueId)}
+                              >
+                                ⏱ {p.duration}
+                              </button>
+
+                              <button 
+                                onClick={() => handleRemoveFromDraft(p.uniqueId)}
+                                className="libDraftRemoveBtn"
+                              >×</button>
+                              <div className="libDraftBadge">
+                                {i + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* POSE PICKER HEADER - Fixed, no scroll */}
+                  <div className="libSheetSectionHeader">
+                    <h3 className="libSectionTitle libSectionTitleSheet">
+                      Tap to Add
+                    </h3>
+                    <LibrarySearch value={sheetPoseQuery} onChange={setSheetPoseQuery} />
+                  </div>
+
+                  {/* POSE LIST - Scrollable container */}
+                  <div className="libPoseListScrollContainer">
+                    <AnimatedList
+                      items={sheetVisiblePoses}
+                      showGradients={false}
+                      renderItem={(pose) => {
+                        const isAdded = draftPoses.some(p => p.id === pose.id);
+                        return (
+                          <div onClick={() => setSelectedPose(pose)} style={{ cursor: 'pointer', marginBottom: '10px' }}>
+                            <Card className="libPoseCard" style={{ padding: '10px 16px' }}>
+                              <div className="libPoseRow">
+                                <div className="libPoseThumb" style={{ width: '48px', height: '48px' }}>
+                                  {pose.image ? <img src={pose.image} alt={pose.name} /> : <span className="libPoseThumbEmoji">🧘</span>}
+                                </div>
+                                <div className="libPoseText">
+                                  <div className="libPoseName" style={{ fontSize: '15px' }}>{pose.name}</div>
+                                  <div className="libPoseMeta">{pose.duration}</div>
+                                </div>
+                                
+                                {/* TOGGLE BUTTON */}
+                                <button 
+                                  className={`libAddButton ${isAdded ? 'libAddButtonActive' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    if (isAdded) {
+                                      handleRemoveFromDraftById(pose.id);
+                                    } else {
+                                      handleAddToDraft(pose);
+                                    }
+                                  }}
+                                >
+                                  {isAdded ? (
+                                    <>
+                                      <img src={TickIcon} alt="Added" style={{width:'14px', marginRight: '6px', filter: 'brightness(10)'}}/>
+                                      Added
+                                    </>
+                                  ) : "+ Add"}
+                                </button>
+                              </div>
+                            </Card>
+                          </div>
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* 🟢 CONFIRMATION MODAL */}
         <AnimatePresence>

@@ -50,7 +50,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  height: 44px;
+  height: 44px; /* Fixed height - prevents vertical layout shifts */
   width: 46px;
   border-radius: 999px;
   background: #ffffff;
@@ -59,7 +59,10 @@
   transition:
     width 0.35s cubic-bezier(0.68, -0.55, 0.27, 1.3),
     border-radius 0.35s,
-    box-shadow 0.35s;
+    box-shadow 0.35s,
+    background-color 0.35s; /* Smooth background transition */
+  flex-shrink: 1; /* Allow width to change without affecting parent */
+  box-sizing: border-box; /* Include padding/border in width calculation */
 }
 
 .libSearchPillOpen {
@@ -322,6 +325,16 @@
   box-sizing: border-box;
 }
 
+/* Container for draft list - reserves space to prevent layout shifts */
+.libDraftListContainer {
+  height: 120px; /* Fixed height to reserve space and prevent layout shifts */
+  min-height: 120px; /* Ensure minimum height */
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch; /* Stretch children to fill container height */
+  width: 100%;
+}
+
 .libDraftEmpty {
   padding: 20px;
   text-align: center;
@@ -330,14 +343,27 @@
   border-radius: 24px;
   font-size: 13px;
   margin: 0 16px;
+  width: calc(100% - 32px); /* Account for left and right margins */
+  min-height: 80px; /* Ensure minimum visible height */
+  height: 100%; /* Fill parent container */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .libDraftList {
   display: flex;
   overflow-x: auto;
-  gap: 10px;
-  padding: 0 16px 4px 16px;
+  gap: 10px; /* Restored original gap */
+  padding: 5px 16px 0px 16px; /* Restored original padding: top 5px (for badge), sides 16px */
   scrollbar-width: none;
+  overflow-y: visible; /* Allow badge to extend above container */
+  width: 100%;
+  height: 100%; /* Fill parent container to match fixed height */
+  min-height: 120px; /* Match container height to prevent layout shifts */
+  box-sizing: border-box;
+  align-items: flex-start;
 }
 
 .libDraftList::-webkit-scrollbar {
@@ -346,15 +372,15 @@
 
 .libDraftItem {
   position: relative;
-  flex: 0 0 70px;
+  flex: 0 0 70px; /* Restored original size */
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .libDraftItemThumb {
-  width: 70px;
-  height: 70px;
+  width: 70px; /* Restored original size */
+  height: 70px; /* Restored original size */
   background: white;
   border-radius: 12px;
   border: 1px solid #e9f7dd;
@@ -371,8 +397,8 @@
 }
 
 .libDraftItemName {
-  font-size: 10px;
-  margin-top: 4px;
+  font-size: 10px; /* Restored original size */
+  margin-top: 4px; /* Restored original spacing */
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -703,12 +729,12 @@
 
 /* --- NEW: DURATION TOGGLE ON DRAFT ITEMS --- */
 .libDraftItemTimeBtn {
-  margin-top: 4px;
+  margin-top: 4px; /* Restored original spacing */
   background: #f4f8f1;
   border: 1px solid #dcefdc;
-  border-radius: 8px;
-  padding: 2px 6px;
-  font-size: 10px;
+  border-radius: 8px; /* Restored original radius */
+  padding: 2px 6px; /* Restored original padding */
+  font-size: 10px; /* Restored original size */
   font-weight: 700;
   color: #526b57;
   cursor: pointer;
@@ -1003,4 +1029,196 @@
   color: #ffffff !important;
   border-color: #61b329 !important;
   box-shadow: 0 4px 16px rgba(97, 179, 41, 0.4) !important;
+}
+
+/* =========================================
+   BOTTOM SHEET FOR CREATE ROUTINE
+   ========================================= */
+
+/* Backdrop */
+.libSheetBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 999;
+  pointer-events: auto;
+}
+
+/* Bottom Sheet Container */
+.libRoutineSheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: calc(100vh - 24px); /* Nearly full-screen with small top margin */
+  max-height: 95vh; /* Fallback for older browsers */
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.libRoutineSheetCollapsed {
+  transform: translateY(calc(100% - 60px));
+  /* Keep same height even when collapsed for smooth animation */
+  height: calc(100vh - 24px) !important;
+  max-height: 95vh !important;
+}
+
+.libRoutineSheetOpen {
+  transform: translateY(0);
+  /* Explicitly set height for open state - fixed height prevents resizing */
+  height: calc(100vh - 24px) !important;
+  max-height: 95vh !important;
+}
+
+/* Handle Bar */
+.libRoutineSheetHandle {
+  width: 100%;
+  padding: 6px 0 4px 0; /* Reduced top padding to tighten gap */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  position: relative;
+  min-height: 32px; /* Smaller but still tappable */
+}
+
+.libRoutineSheetHandle:hover .libRoutineSheetHandleBar {
+  background-color: #c0c0c0;
+}
+
+.libRoutineSheetHandle:active {
+  cursor: grabbing;
+}
+
+.libRoutineSheetHandleBar {
+  width: 40px;
+  height: 4px;
+  background-color: #e0e0e0;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+  pointer-events: none; /* Prevent bar itself from capturing events */
+}
+
+/* Header Row */
+.libRoutineSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 20px 24px 20px; /* Reduced top padding since handle gap is smaller */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+  min-height: 52px; /* Fixed height to prevent layout shifts */
+  box-sizing: border-box;
+  margin-top: 0; /* Remove any extra top margin */
+}
+
+/* Body Content - Non-scrollable, contains fixed sections + scrollable pose list */
+.libRoutineSheetBody {
+  flex: 1;
+  overflow: hidden; /* Remove scrolling from body - only pose list scrolls */
+  padding: 0; /* Remove all padding - let child containers handle their own spacing */
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Scrollable pose list container */
+.libPoseListScrollContainer {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 16px 24px 16px; /* Match draft board horizontal padding (16px) to align with cover box */
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  box-sizing: border-box;
+}
+
+.libPoseListScrollContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.libPoseListScrollContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.libPoseListScrollContainer::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.libPoseListScrollContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Sheet-specific styles for draft board */
+.libDraftBoardSheet {
+  margin: 0 !important;
+  padding: 16px 16px 4px 16px !important; /* Reduced bottom padding to minimize gap below draft area */
+  background: transparent !important;
+  position: relative !important;
+  top: auto !important;
+  z-index: auto !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  flex-shrink: 0; /* Prevent shrinking, keep fixed */
+  box-sizing: border-box;
+}
+
+.libCoverSectionSheet {
+  margin: 0 0 16px 0 !important;
+}
+
+.libSectionTitleSheet {
+  margin-top: 0 !important; /* Removed top margin, spacing handled by parent container */
+}
+
+/* Sheet Section Header - flex row with search */
+.libSheetSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px 0; /* Removed top margin to minimize gap - draft area sits directly above */
+  padding: 0 16px; /* Match horizontal padding with pose list container */
+  min-height: 44px; /* Fixed height to prevent layout shifts when search expands */
+  box-sizing: border-box;
+  flex-shrink: 0; /* Prevent shrinking, keep fixed */
+}
+
+.libSheetSectionHeader .libSectionTitle {
+  margin: 0 !important;
+  flex-shrink: 0;
+  height: auto;
+}
+
+.libSheetSectionHeader .libSearchPill {
+  flex-shrink: 1;
+  margin: 0;
+  height: 44px; /* Fixed height - search only expands width, not height */
+  min-width: 46px; /* Minimum width when collapsed */
+  max-width: 160px; /* Maximum width when expanded */
 }
