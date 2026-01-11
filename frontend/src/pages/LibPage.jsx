@@ -287,7 +287,8 @@ export default function LibPage() {
           image: pose.animation_url, 
           favorite: false,
           instructions: pose.instructions,
-          benefits: pose.benefits
+          benefits: pose.benefits,
+          difficultyTag: pose.difficulty_tag
         }));
         setPoses(dbPoses);
       })
@@ -482,6 +483,12 @@ export default function LibPage() {
               <h3 className="libCardTitle">Benefits</h3>
               <p className="libCardText">{selectedPose.benefits}</p>
             </Card>
+            {selectedPose.difficultyTag ? (
+              <Card style={{ marginBottom: '15px' }}>
+                <h3 className="libCardTitle">Difficulty</h3>
+                <p className="libCardText">{selectedPose.difficultyTag}</p>
+              </Card>
+            ) : null}
             <Card>
               <h3 className="libCardTitle">How to do it</h3>
               <p className="libCardText">{selectedPose.instructions}</p>
@@ -666,7 +673,7 @@ export default function LibPage() {
                               </div>
                               <div className="libPoseText">
                                   <div className="libPoseName" style={{ fontSize: '15px' }}>{pose.name}</div>
-                                  <div className="libPoseMeta">{pose.duration}</div>
+                                  <div className="libPoseMeta">{pose.duration}{pose.difficultyTag ? ` • ${pose.difficultyTag}` : ""}</div>
                               </div>
                               
                               {/* --- TOGGLE BUTTON --- */}
@@ -719,7 +726,7 @@ export default function LibPage() {
                           </div>
                           <div className="libPoseText">
                             <div className="libPoseName">{pose.name}</div>
-                            <div className="libPoseMeta">{pose.duration}</div>
+                            <div className="libPoseMeta">{pose.duration}{pose.difficultyTag ? ` • ${pose.difficultyTag}` : ""}</div>
                           </div>
                           <button className="libPoseFavoriteBtn" onClick={(e) => { e.stopPropagation(); toggleFavorite(pose.id); }}>
                             <img src={pose.favorite ? StarIconFill : StarIcon} alt="Fav" />
@@ -797,7 +804,7 @@ export default function LibPage() {
                               </div>
                               <div className="libPoseText">
                                 <div className="libPoseName">{pose.name}</div>
-                                <div className="libPoseMeta">{pose.duration}</div>
+                                <div className="libPoseMeta">{pose.duration}{pose.difficultyTag ? ` • ${pose.difficultyTag}` : ""}</div>
                               </div>
                               <div className="libPoseChevron">›</div>
                             </div>

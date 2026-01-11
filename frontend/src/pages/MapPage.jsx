@@ -737,7 +737,8 @@ export default function MapPage() {
                       duration: routinePose.duration || "30 sec",
                       benefits: routinePose.benefits,
                       instructions: routinePose.instructions,
-                      gif: routinePose.image 
+                      gif: routinePose.image || routinePose.gif,
+                      difficultyTag: routinePose.difficultyTag
                   }
               };
           });
@@ -2019,7 +2020,9 @@ export default function MapPage() {
               <div className="cp-slide">
                 <div className="cp-detail-meta">
                   <span className="cp-meta-item">⏱ {selectedCheckpoint.exercise?.duration || "30 sec"}</span>
-                  <span className="cp-meta-item">🧘 Beginner Friendly</span>
+                  {selectedCheckpoint.exercise?.difficultyTag && (
+                    <span className="cp-meta-item">🧘 {selectedCheckpoint.exercise.difficultyTag}</span>
+                  )}
                 </div>
                 
                 <div className="cp-gif-placeholder">

@@ -41,7 +41,8 @@ def reset_tables(conn):
             name NVARCHAR(100) NOT NULL,
             instructions NVARCHAR(MAX),
             benefits NVARCHAR(MAX),
-            animation_url NVARCHAR(255)
+            animation_url NVARCHAR(255),
+            difficulty_tag NVARCHAR(50)
         )
     ''')
 
@@ -71,10 +72,10 @@ def reset_tables(conn):
     print("✅ All tables (Poses, Themes, Questions [3-Part]) created successfully.")
 
 def seed_poses(conn):
-    """Reads poses.csv and inserts into DB."""
+    """Reads pose_tags.csv and inserts into DB."""
     cursor = conn.cursor()
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(current_dir, 'poses.csv')
+    csv_path = os.path.join(current_dir, 'pose_tags.csv')
 
     if not os.path.exists(csv_path):
         print(f"⚠️  Skipping Poses: {csv_path} not found.")
@@ -90,12 +91,13 @@ def seed_poses(conn):
                     row['Exercise'], 
                     row['How to do the exercise'], 
                     row['Benefits'], 
-                    row.get('Animation', '')
+                    row.get('Animation', ''),
+                    row.get('Difficulty Tag', '')
                 ))
             
             cursor.executemany('''
-                INSERT INTO poses (name, instructions, benefits, animation_url)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO poses (name, instructions, benefits, animation_url, difficulty_tag)
+                VALUES (?, ?, ?, ?, ?)
             ''', rows)
             conn.commit()
             print(f"   ✅ Seeded {len(rows)} poses.")

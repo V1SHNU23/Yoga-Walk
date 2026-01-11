@@ -73,7 +73,7 @@ def get_all_poses():
     if not conn: return jsonify({"error": "Database not connected"}), 500
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, instructions, benefits, animation_url FROM poses")
+        cursor.execute("SELECT id, name, instructions, benefits, animation_url, difficulty_tag FROM poses")
         columns = [column[0] for column in cursor.description]
         results = [dict(zip(columns, row)) for row in cursor.fetchall()]
         return jsonify(results)
@@ -135,7 +135,7 @@ def create_journey():
     if conn:
         try:
             cursor = conn.cursor()
-            query = f"SELECT TOP {checkpoint_count} name, benefits, instructions, animation_url FROM poses ORDER BY NEWID()"
+            query = f"SELECT TOP {checkpoint_count} name, benefits, instructions, animation_url, difficulty_tag FROM poses ORDER BY NEWID()"
             cursor.execute(query)
             columns = [column[0] for column in cursor.description]
             random_poses = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -148,7 +148,8 @@ def create_journey():
                         "duration": "30 sec", 
                         "benefits": pose["benefits"], 
                         "instructions": pose["instructions"],
-                        "gif": pose["animation_url"] or fallback_pose["gif"]
+                        "gif": pose["animation_url"] or fallback_pose["gif"],
+                        "difficultyTag": pose.get("difficulty_tag") or None
                     }
                 else:
                     cp["exercise"] = fallback_pose
@@ -270,7 +271,7 @@ def get_routines():
         for r in routines_db:
             routine_id = r.RoutineID
             
-            # 2. UPDATED QUERY: Left Join to fetch Benefits, Instructions, and Animation
+            # 2. UPDATED QUERY: Left Join to fetch Benefits, Instructions, Animation, and Difficulty
             cursor.execute("""
                 SELECT 
                     rp.PoseID, 
@@ -278,7 +279,8 @@ def get_routines():
                     rp.Duration, 
                     p.benefits, 
                     p.instructions, 
-                    p.animation_url
+                    p.animation_url,
+                    p.difficulty_tag
                 FROM RoutinePoses rp
                 LEFT JOIN poses p ON rp.PoseID = p.id
                 WHERE rp.RoutineID = ? 
@@ -293,7 +295,8 @@ def get_routines():
                     "duration": p.Duration,
                     "benefits": p.benefits if p.benefits else "Benefits unavailable for this custom pose.",
                     "instructions": p.instructions if p.instructions else "Follow the audio cues.",
-                    "gif": p.animation_url if p.animation_url else "" 
+                    "gif": p.animation_url if p.animation_url else "",
+                    "difficultyTag": p.difficulty_tag if p.difficulty_tag else None
                 })
 
             routines_list.append({
