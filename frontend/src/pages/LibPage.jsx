@@ -232,10 +232,6 @@ export default function LibPage() {
           sheetRef.current.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
           sheetRef.current.style.transform = 'translateY(0)';
         }
-      } else {
-        // It was just a tap - close the sheet
-        setIsRoutineSheetOpen(false);
-        setIsCreating(false);
       }
       
       currentY.current = 0;
@@ -479,16 +475,16 @@ export default function LibPage() {
                   <div className="libPoseDetailPlaceholder">🧘</div>
                )}
             </div>
-            <Card style={{ marginBottom: '15px' }}>
-              <h3 className="libCardTitle">Benefits</h3>
-              <p className="libCardText">{selectedPose.benefits}</p>
-            </Card>
             {selectedPose.difficultyTag ? (
               <Card style={{ marginBottom: '15px' }}>
                 <h3 className="libCardTitle">Difficulty</h3>
                 <p className="libCardText">{selectedPose.difficultyTag}</p>
               </Card>
             ) : null}
+            <Card style={{ marginBottom: '15px' }}>
+              <h3 className="libCardTitle">Benefits</h3>
+              <p className="libCardText">{selectedPose.benefits}</p>
+            </Card>
             <Card>
               <h3 className="libCardTitle">How to do it</h3>
               <p className="libCardText">{selectedPose.instructions}</p>
@@ -552,6 +548,11 @@ export default function LibPage() {
                 <div
                   ref={handleRef}
                   className="libRoutineSheetHandle"
+                  onClick={() => {
+                    // Tap on the gray handle fully dismisses the sheet (same as Cancel)
+                    setIsRoutineSheetOpen(false);
+                    setIsCreating(false);
+                  }}
                 >
                   <div className="libRoutineSheetHandleBar"></div>
                 </div>
