@@ -21,6 +21,7 @@ import MuteIcon from "../icons/mute.svg";
 import SearchIcon from "../icons/search.svg"; 
 
 import WalkSummaryCard from "../components/WalkSummaryCard";
+import SaveRouteModal from "../components/SaveRouteModal.jsx";
 
 // --- CONFIG ---
 const defaultCenter = {
@@ -694,6 +695,8 @@ export default function MapPage() {
   // Summary Card State
   const [showSummary, setShowSummary] = useState(false);
   const [finalMetrics, setFinalMetrics] = useState(null);
+  const [isSaveRouteModalOpen, setIsSaveRouteModalOpen] = useState(false);
+  const hasSavedWalkRef = useRef(false);
 
   // --- VOICE GUIDANCE STATE ---
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -1572,6 +1575,7 @@ export default function MapPage() {
         }
     }
     const distanceKm = (distanceMeters / 1000).toFixed(2);
+    hasSavedWalkRef.current = false;
     setFinalMetrics({
         distance: distanceKm,
         duration: durationSeconds,
@@ -1585,8 +1589,18 @@ export default function MapPage() {
     setSheetOpen(false);
   };
 
-  // UPDATED: Save Logic to handle flattened list of 3 questions
-  const handleSaveAndClose = async () => {
+  // Automatically save walk once metrics are available
+  useEffect(() => {
+    if (finalMetrics) {
+      saveCompletedWalk();
+    }
+  }, [finalMetrics]);
+
+  // Helper: build reflections payload and POST walk completion
+  const saveCompletedWalk = async () => {
+    if (hasSavedWalkRef.current || !finalMetrics) return;
+    hasSavedWalkRef.current = true;
+
     try {
         const reflectionsData = [];
         
@@ -1624,10 +1638,32 @@ export default function MapPage() {
     } catch (e) {
         console.error("Save failed", e);
     }
+  };
+
+  // UPDATED: Save Logic to handle flattened list of 3 questions
+  const handleSaveAndClose = async () => {
+    await saveCompletedWalk();
     setShowSummary(false);
     setFinalMetrics(null);
     handleReset();
   };
+
+  // Save Route handler (shared with Library via localStorage)
+  function handleSaveRouteFromMap(routeData) {
+    try {
+      const stored = localStorage.getItem("yogaWalkSavedRoutes");
+      const existing = stored ? JSON.parse(stored) : [];
+      const newRoute = {
+        id: Date.now().toString(),
+        ...routeData,
+      };
+      const updated = [...existing, newRoute];
+      localStorage.setItem("yogaWalkSavedRoutes", JSON.stringify(updated));
+    } catch (e) {
+      console.error("Failed to save route from map:", e);
+    }
+    setIsSaveRouteModalOpen(false);
+  }
 
   function handleReset() {
     localStorage.removeItem("activeWalkState");
@@ -1764,18 +1800,25 @@ export default function MapPage() {
       {/* 1. MAP LAYER */}
       <div className="mapWrapper">
         {showSummary && finalMetrics && (
-            <WalkSummaryCard
-                distance={finalMetrics.distance}
-                duration={finalMetrics.duration}
-                checkpoints={finalMetrics.checkpoints}
-                calories={finalMetrics.calories}
-                onSave={handleSaveAndClose}
-                onClose={() => {
-                setShowSummary(false);
-                handleReset();
-                }}
-            />
+          <WalkSummaryCard
+            distance={finalMetrics.distance}
+            duration={finalMetrics.duration}
+            checkpoints={finalMetrics.checkpoints}
+            calories={finalMetrics.calories}
+            onSave={() => setIsSaveRouteModalOpen(true)}
+            onClose={() => {
+              setShowSummary(false);
+              handleReset();
+            }}
+          />
         )}
+
+        {/* SAVE ROUTE MODAL (uses shared component + Library styles) */}
+        <SaveRouteModal
+          isOpen={isSaveRouteModalOpen}
+          onClose={() => setIsSaveRouteModalOpen(false)}
+          onSave={handleSaveRouteFromMap}
+        />
 
         <MapContainer
           ref={setMap}

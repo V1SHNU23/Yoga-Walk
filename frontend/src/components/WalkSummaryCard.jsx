@@ -57,8 +57,12 @@ const WalkSummaryCard = ({ distance, duration, checkpoints, calories, onSave, on
             </div>
           </div>
 
+          <p className="summary-helper-text">
+            Your walk was saved to history automatically.
+          </p>
+
           <button className="btn-primary summary-btn" onClick={onSave}>
-            Save to History
+            Save Route
           </button>
         </Card>
       </motion.div>

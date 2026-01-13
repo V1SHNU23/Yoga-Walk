@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion"; 
 import Card from "../components/Card.jsx";
 import AnimatedList from "../components/AnimatedList.jsx";
+import SaveRouteModal from "../components/SaveRouteModal.jsx";
 import SearchIcon from "../icons/search.svg";
 import StarIcon from "../icons/star.svg";
 import StarIconFill from "../icons/star-fill.svg";
@@ -49,102 +50,53 @@ function DeleteConfirmationModal({ isOpen, onClose, onConfirm }) {
   );
 }
 
-// --- SUB-COMPONENT: SAVE ROUTE MODAL ---
-function SaveRouteModal({ isOpen, onClose, onSave }) {
-  const [routeName, setRouteName] = useState("");
-  const [note, setNote] = useState("");
-  const [locationLabel, setLocationLabel] = useState("");
-
-  // Prefill default name on open
-  useEffect(() => {
-    if (isOpen) {
-      const today = new Date();
-      const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      setRouteName(`Yoga Walk – ${dateStr}`);
-      setNote("");
-      setLocationLabel("");
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!routeName.trim()) {
-      alert("Please enter a route name.");
-      return;
-    }
-    onSave({
-      name: routeName.trim(),
-      note: note.trim(),
-      locationLabel: locationLabel.trim(),
-      createdAt: new Date().toISOString()
-    });
-    onClose();
-  };
+// --- SUB-COMPONENT: SAVED ROUTE DETAILS MODAL ---
+function SavedRouteDetailsModal({ route, onClose }) {
+  if (!route) return null;
 
   return (
     <div className="libModalOverlay" onClick={onClose}>
-      <motion.div 
+      <motion.div
         className="libModalCard"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-      > 
-        <h3 className="libModalTitle">Save Route</h3>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="libModalFormGroup">
-            <label className="libModalLabel">
-              Route Name <span className="libModalRequired">*</span>
-            </label>
-            <input
-              type="text"
-              className="libModalInput"
-              value={routeName}
-              onChange={(e) => setRouteName(e.target.value)}
-              placeholder="Yoga Walk – Dec 15, 2024"
-              required
-              autoFocus
-            />
-          </div>
+      >
+        <h3 className="libModalTitle">{route.name}</h3>
 
-          <div className="libModalFormGroup">
-            <label className="libModalLabel">Note / Intention (optional)</label>
-            <textarea
-              className="libModalTextarea"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g., Morning meditation walk, Evening reflection..."
-              rows={3}
-            />
+        {route.locationLabel && (
+          <div style={{ marginBottom: "10px" }}>
+            <h4 className="libCardTitle">Location</h4>
+            <p className="libCardText">{route.locationLabel}</p>
           </div>
+        )}
 
-          <div className="libModalFormGroup">
-            <label className="libModalLabel">Location Label (optional)</label>
-            <input
-              type="text"
-              className="libModalInput"
-              value={locationLabel}
-              onChange={(e) => setLocationLabel(e.target.value)}
-              placeholder="e.g., Central Park, Home neighborhood..."
-            />
+        {route.note && (
+          <div style={{ marginBottom: "10px" }}>
+            <h4 className="libCardTitle">Intention / Notes</h4>
+            <p className="libCardText">{route.note}</p>
           </div>
+        )}
 
-          <p className="libModalHelperText">
-            💡 Saved routes are for reuse; walk history is automatic.
-          </p>
+        <p className="libModalHelperText">
+          Saved on{" "}
+          {new Date(route.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
 
-          <div className="libModalActions">
-            <button type="button" className="libModalBtn cancel" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="libModalBtn save">
-              Save Route
-            </button>
-          </div>
-        </form>
+        <div className="libModalActions">
+          <button
+            type="button"
+            className="libModalBtn cancel"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
       </motion.div>
     </div>
   );
@@ -255,8 +207,8 @@ export default function LibPage() {
       return [];
     }
   });
-  const [showSavedRoutes, setShowSavedRoutes] = useState(true);
   const [isSaveRouteModalOpen, setIsSaveRouteModalOpen] = useState(false);
+  const [selectedSavedRoute, setSelectedSavedRoute] = useState(null);
   
   // --- SELECTION STATE ---
   const [selectedPose, setSelectedPose] = useState(null);       
@@ -1030,62 +982,63 @@ export default function LibPage() {
               <div className="libSavedRoutesHeader">
                 <div className="libSavedRoutesHeaderLeft">
                   <h3 className="libSectionTitle">Saved Routes</h3>
-                  <label className="libToggleSwitch">
-                    <input
-                      type="checkbox"
-                      checked={showSavedRoutes}
-                      onChange={(e) => setShowSavedRoutes(e.target.checked)}
-                    />
-                    <span className="libToggleSlider"></span>
-                  </label>
                 </div>
-                <button
-                  className="libSaveRouteBtn"
-                  onClick={() => setIsSaveRouteModalOpen(true)}
-                >
-                  + Save Route
-                </button>
               </div>
 
-              {showSavedRoutes && (
-                <>
-                  {savedRoutes.length === 0 ? (
-                    <div className="libSavedRoutesCard">
-                      <p className="libSavedRoutesTitle">No saved routes yet</p>
-                      <p className="libSavedRoutesText">
-                        Save your favorite walking routes here for quick reuse. Walk history is automatically tracked separately.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="libSavedRoutesList">
-                      {savedRoutes.map((route) => (
-                        <Card key={route.id} className="libSavedRouteCard">
-                          <div className="libSavedRouteContent">
-                            <div className="libSavedRouteMain">
-                              <h4 className="libSavedRouteName">{route.name}</h4>
-                              {route.locationLabel && (
-                                <p className="libSavedRouteLocation">📍 {route.locationLabel}</p>
-                              )}
-                              {route.note && (
-                                <p className="libSavedRouteNote">{route.note}</p>
-                              )}
-                              <p className="libSavedRouteDate">
-                                Saved {new Date(route.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              {savedRoutes.length === 0 ? (
+                <div className="libSavedRoutesCard">
+                  <p className="libSavedRoutesTitle">No saved routes yet</p>
+                  <p className="libSavedRoutesText">
+                    Save your favorite walking routes here for quick reuse. Walk history is automatically tracked separately.
+                  </p>
+                </div>
+              ) : (
+                <div className="libSavedRoutesList">
+                  {savedRoutes.map((route) => (
+                    <div
+                      key={route.id}
+                      onClick={() => setSelectedSavedRoute(route)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <Card className="libSavedRouteCard">
+                        <div className="libSavedRouteContent">
+                          <div className="libSavedRouteMain">
+                            <h4 className="libSavedRouteName">{route.name}</h4>
+                            {route.locationLabel && (
+                              <p className="libSavedRouteLocation">
+                                📍 {route.locationLabel}
                               </p>
-                            </div>
-                            <button
-                              className="libSavedRouteDeleteBtn"
-                              onClick={() => handleDeleteSavedRoute(route.id)}
-                              aria-label="Delete route"
-                            >
-                              <img src={BinIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
-                            </button>
+                            )}
+                            {route.note && (
+                              <p className="libSavedRouteNote">{route.note}</p>
+                            )}
+                            <p className="libSavedRouteDate">
+                              Saved{" "}
+                              {new Date(route.createdAt).toLocaleDateString(
+                                "en-US",
+                                { month: "short", day: "numeric", year: "numeric" }
+                              )}
+                            </p>
                           </div>
-                        </Card>
-                      ))}
+                          <button
+                            className="libSavedRouteDeleteBtn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSavedRoute(route.id);
+                            }}
+                            aria-label="Delete route"
+                          >
+                            <img
+                              src={BinIcon}
+                              alt="Delete"
+                              style={{ width: "18px", height: "18px" }}
+                            />
+                          </button>
+                        </div>
+                      </Card>
                     </div>
-                  )}
-                </>
+                  ))}
+                </div>
               )}
             </section>
           )}
@@ -1109,6 +1062,16 @@ export default function LibPage() {
               isOpen={isSaveRouteModalOpen}
               onClose={() => setIsSaveRouteModalOpen(false)}
               onSave={handleSaveRoute}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* 🟢 SAVED ROUTE DETAILS MODAL */}
+        <AnimatePresence>
+          {selectedSavedRoute && (
+            <SavedRouteDetailsModal
+              route={selectedSavedRoute}
+              onClose={() => setSelectedSavedRoute(null)}
             />
           )}
         </AnimatePresence>

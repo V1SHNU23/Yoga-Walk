@@ -180,6 +180,38 @@ def walk_complete():
         conn = get_db()
         cursor = conn.cursor()
         
+        # --- HISTORY RETENTION: Cap at 50 entries ---
+        # Check current count and remove oldest if at limit
+        cursor.execute("SELECT COUNT(*) FROM WalkHistory")
+        current_count = cursor.fetchone()[0]
+        
+        if current_count >= 50:
+            # Get IDs of oldest walks (ordered by WalkDate ASC) that need to be deleted
+            # We keep 49 so the new walk will be the 50th
+            excess_count = current_count - 49
+            cursor.execute("""
+                SELECT TOP (?) WalkID 
+                FROM WalkHistory 
+                ORDER BY WalkDate ASC
+            """, excess_count)
+            old_walk_ids = [row[0] for row in cursor.fetchall()]
+            
+            if old_walk_ids:
+                # Delete associated reflections first (foreign key constraint)
+                placeholders = ','.join(['?'] * len(old_walk_ids))
+                cursor.execute(f"""
+                    DELETE FROM WalkReflections 
+                    WHERE WalkID IN ({placeholders})
+                """, old_walk_ids)
+                
+                # Delete oldest walk history entries
+                cursor.execute(f"""
+                    DELETE FROM WalkHistory 
+                    WHERE WalkID IN ({placeholders})
+                """, old_walk_ids)
+                
+                print(f"🗑️  Removed {len(old_walk_ids)} oldest walk(s) to maintain 50-entry limit")
+        
         SQL_INSERT = """
             INSERT INTO WalkHistory 
             (DistanceKm, DurationMinutes, CaloriesBurned, PosesCompleted, StepsEstimated, Notes, WalkDate)
