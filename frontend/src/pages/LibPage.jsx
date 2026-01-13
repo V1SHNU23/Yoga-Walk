@@ -13,6 +13,7 @@ import TickIcon from "../icons/tick.svg";
 // --- CONFIG ---
 const API_BASE = "http://127.0.0.1:5000"; 
 const DURATION_OPTIONS = ["30 sec", "45 sec", "1 min", "2 min"];
+const FILTER_OPTIONS = ["All", "Favorites", "Beginner", "Intermediate", "Advanced"];
 
 // --- SUB-COMPONENT: CONFIRMATION MODAL ---
 function DeleteConfirmationModal({ isOpen, onClose, onConfirm }) {
@@ -43,6 +44,107 @@ function DeleteConfirmationModal({ isOpen, onClose, onConfirm }) {
             Delete
           </button>
         </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// --- SUB-COMPONENT: SAVE ROUTE MODAL ---
+function SaveRouteModal({ isOpen, onClose, onSave }) {
+  const [routeName, setRouteName] = useState("");
+  const [note, setNote] = useState("");
+  const [locationLabel, setLocationLabel] = useState("");
+
+  // Prefill default name on open
+  useEffect(() => {
+    if (isOpen) {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      setRouteName(`Yoga Walk – ${dateStr}`);
+      setNote("");
+      setLocationLabel("");
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!routeName.trim()) {
+      alert("Please enter a route name.");
+      return;
+    }
+    onSave({
+      name: routeName.trim(),
+      note: note.trim(),
+      locationLabel: locationLabel.trim(),
+      createdAt: new Date().toISOString()
+    });
+    onClose();
+  };
+
+  return (
+    <div className="libModalOverlay" onClick={onClose}>
+      <motion.div 
+        className="libModalCard"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      > 
+        <h3 className="libModalTitle">Save Route</h3>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="libModalFormGroup">
+            <label className="libModalLabel">
+              Route Name <span className="libModalRequired">*</span>
+            </label>
+            <input
+              type="text"
+              className="libModalInput"
+              value={routeName}
+              onChange={(e) => setRouteName(e.target.value)}
+              placeholder="Yoga Walk – Dec 15, 2024"
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className="libModalFormGroup">
+            <label className="libModalLabel">Note / Intention (optional)</label>
+            <textarea
+              className="libModalTextarea"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g., Morning meditation walk, Evening reflection..."
+              rows={3}
+            />
+          </div>
+
+          <div className="libModalFormGroup">
+            <label className="libModalLabel">Location Label (optional)</label>
+            <input
+              type="text"
+              className="libModalInput"
+              value={locationLabel}
+              onChange={(e) => setLocationLabel(e.target.value)}
+              placeholder="e.g., Central Park, Home neighborhood..."
+            />
+          </div>
+
+          <p className="libModalHelperText">
+            💡 Saved routes are for reuse; walk history is automatic.
+          </p>
+
+          <div className="libModalActions">
+            <button type="button" className="libModalBtn cancel" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="libModalBtn save">
+              Save Route
+            </button>
+          </div>
+        </form>
       </motion.div>
     </div>
   );
@@ -136,11 +238,25 @@ export default function LibPage() {
   const navigate = useNavigate(); 
   const [activeTab, setActiveTab] = useState("poses");
   const [query, setQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState("All");
   
   // --- DATA STATE ---
   const [poses, setPoses] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [routines, setRoutines] = useState([]);
+  
+  // --- SAVED ROUTES STATE ---
+  // TODO: Replace with backend API call when available
+  const [savedRoutes, setSavedRoutes] = useState(() => {
+    try {
+      const stored = localStorage.getItem("yogaWalkSavedRoutes");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showSavedRoutes, setShowSavedRoutes] = useState(true);
+  const [isSaveRouteModalOpen, setIsSaveRouteModalOpen] = useState(false);
   
   // --- SELECTION STATE ---
   const [selectedPose, setSelectedPose] = useState(null);       
@@ -166,6 +282,15 @@ export default function LibPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // --- SAVED ROUTES PERSISTENCE ---
+  useEffect(() => {
+    try {
+      localStorage.setItem("yogaWalkSavedRoutes", JSON.stringify(savedRoutes));
+    } catch (e) {
+      console.error("Failed to save routes to localStorage:", e);
+    }
+  }, [savedRoutes]);
 
   // --- DRAG-TO-DISMISS HANDLERS ---
   useEffect(() => {
@@ -303,12 +428,26 @@ export default function LibPage() {
       });
   }
 
+  // --- FAVORITES HANDLERS ---
   function toggleFavorite(id) {
     setPoses((prev) =>
       prev.map((pose) =>
         pose.id === id ? { ...pose, favorite: !pose.favorite } : pose
       )
     );
+  }
+
+  // --- SAVED ROUTES HANDLERS ---
+  function handleSaveRoute(routeData) {
+    const newRoute = {
+      id: Date.now().toString(),
+      ...routeData
+    };
+    setSavedRoutes(prev => [...prev, newRoute]);
+  }
+
+  function handleDeleteSavedRoute(id) {
+    setSavedRoutes(prev => prev.filter(route => route.id !== id));
   }
 
   // --- BUILDER LOGIC ---
@@ -449,7 +588,14 @@ export default function LibPage() {
 
   // --- FILTERING ---
   const visiblePoses = poses.filter((pose) => {
-    if (activeTab === "favorites" && !pose.favorite) return false;
+    // Handle Favorites filter
+    if (activeFilter === "Favorites" && !pose.favorite) {
+      return false;
+    }
+    // Handle difficulty filters
+    if (activeFilter !== "All" && activeFilter !== "Favorites" && pose.difficultyTag && pose.difficultyTag !== activeFilter) {
+      return false;
+    }
     return pose.name.toLowerCase().includes(query.toLowerCase());
   });
 
@@ -503,36 +649,89 @@ export default function LibPage() {
         {/* HEADER AREA */}
         <div className="libHeader">
           {activeTab === "routines" && selectedRoutine ? (
-             // ROUTINE DETAIL HEADER
-             <div className="libHeaderRow">
-                <button 
-                  onClick={() => setSelectedRoutine(null)} 
-                  className="libBackBtn"
-                >
-                   <img src={BackIcon} alt="Back" className="libBackIcon" />
-                </button>
-                <h1 className="libTitle">{selectedRoutine.title}</h1>
-             </div>
+            // ROUTINE DETAIL HEADER
+            <div className="libHeaderRow">
+              <button 
+                onClick={() => setSelectedRoutine(null)} 
+                className="libBackBtn"
+              >
+                <img src={BackIcon} alt="Back" className="libBackIcon" />
+              </button>
+              <h1 className="libTitle">{selectedRoutine.title}</h1>
+            </div>
           ) : (
-             // STANDARD HEADER
-             <>
-               <h1 className="libTitle">Pose Library</h1>
-               <LibrarySearch value={query} onChange={setQuery} />
-             </>
+            // STANDARD HEADER
+            <>
+              <h1 className="libTitle">Library</h1>
+              {!isCreating && (
+                <LibrarySearch value={query} onChange={setQuery} />
+              )}
+            </>
           )}
         </div>
 
         {/* TABS (Hidden if viewing routine details) */}
         {!selectedRoutine && (
           <div className="libTabs">
-            <button className={`libTab ${activeTab === "poses" ? "libTabActive" : ""}`} onClick={() => setActiveTab("poses")}>Poses</button>
-            <button className={`libTab ${activeTab === "routines" ? "libTabActive" : ""}`} onClick={() => setActiveTab("routines")}>Routines</button>
-            <button className={`libTab ${activeTab === "favorites" ? "libTabActive" : ""}`} onClick={() => setActiveTab("favorites")}>Favorites</button>
+            <button 
+              className={`libTab ${activeTab === "poses" ? "libTabActive" : ""}`} 
+              onClick={() => setActiveTab("poses")}
+            >
+              Poses
+            </button>
+            <button 
+              className={`libTab ${activeTab === "routines" ? "libTabActive" : ""}`} 
+              onClick={() => setActiveTab("routines")}
+            >
+              Routines
+            </button>
+            <button 
+              className={`libTab ${activeTab === "routes" ? "libTabActive" : ""}`} 
+              onClick={() => setActiveTab("routes")}
+            >
+              Routes
+            </button>
           </div>
         )}
 
         {/* CONTENT AREA */}
         <div className="libList">
+
+          {/* FILTER BAR (Difficulty-based) - Poses tab only, pinned to top of list */}
+          {!selectedRoutine && !isCreating && activeTab === "poses" && (
+            <div
+              className="libFilterBar"
+              role="tablist"
+              aria-label="Pose difficulty filter"
+            >
+              {FILTER_OPTIONS.map((option) => {
+                const isActive = activeFilter === option;
+                const isFavorites = option === "Favorites";
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`libFilterChip ${
+                      isActive ? "libFilterChipActive" : ""
+                    }`}
+                    onClick={() => setActiveFilter(option)}
+                    aria-pressed={isActive}
+                    aria-label={isFavorites ? "Favorites" : option}
+                  >
+                    {isFavorites ? (
+                      <img 
+                        src={isActive ? StarIconFill : StarIcon} 
+                        alt="" 
+                        className="libFilterChipIcon"
+                      />
+                    ) : (
+                      option
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* --- BOTTOM SHEET: ROUTINE CREATION --- */}
           {isCreating && (
@@ -711,7 +910,7 @@ export default function LibPage() {
           )}
 
           {/* --- 2. POSES TAB --- */}
-          {!isCreating && (activeTab === "poses" || activeTab === "favorites") && (
+          {!isCreating && activeTab === "poses" && (
             <>
               {loading ? <p className="libEmptyState">Loading...</p> : visiblePoses.length > 0 ? (
                 <AnimatedList
@@ -729,8 +928,15 @@ export default function LibPage() {
                             <div className="libPoseName">{pose.name}</div>
                             <div className="libPoseMeta">{pose.duration}{pose.difficultyTag ? ` • ${pose.difficultyTag}` : ""}</div>
                           </div>
-                          <button className="libPoseFavoriteBtn" onClick={(e) => { e.stopPropagation(); toggleFavorite(pose.id); }}>
-                            <img src={pose.favorite ? StarIconFill : StarIcon} alt="Fav" />
+                          <button 
+                            className="libPoseFavoriteBtn" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              toggleFavorite(pose.id); 
+                            }}
+                            aria-label={pose.favorite ? "Remove from favorites" : "Add to favorites"}
+                          >
+                            <img src={pose.favorite ? StarIconFill : StarIcon} alt="Favorite" />
                           </button>
                           <div className="libPoseChevron">›</div>
                         </div>
@@ -817,6 +1023,72 @@ export default function LibPage() {
               )}
             </>
           )}
+
+          {/* --- 4. ROUTES TAB (Saved Routes) --- */}
+          {!isCreating && activeTab === "routes" && (
+            <section className="libSavedRoutesSection">
+              <div className="libSavedRoutesHeader">
+                <div className="libSavedRoutesHeaderLeft">
+                  <h3 className="libSectionTitle">Saved Routes</h3>
+                  <label className="libToggleSwitch">
+                    <input
+                      type="checkbox"
+                      checked={showSavedRoutes}
+                      onChange={(e) => setShowSavedRoutes(e.target.checked)}
+                    />
+                    <span className="libToggleSlider"></span>
+                  </label>
+                </div>
+                <button
+                  className="libSaveRouteBtn"
+                  onClick={() => setIsSaveRouteModalOpen(true)}
+                >
+                  + Save Route
+                </button>
+              </div>
+
+              {showSavedRoutes && (
+                <>
+                  {savedRoutes.length === 0 ? (
+                    <div className="libSavedRoutesCard">
+                      <p className="libSavedRoutesTitle">No saved routes yet</p>
+                      <p className="libSavedRoutesText">
+                        Save your favorite walking routes here for quick reuse. Walk history is automatically tracked separately.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="libSavedRoutesList">
+                      {savedRoutes.map((route) => (
+                        <Card key={route.id} className="libSavedRouteCard">
+                          <div className="libSavedRouteContent">
+                            <div className="libSavedRouteMain">
+                              <h4 className="libSavedRouteName">{route.name}</h4>
+                              {route.locationLabel && (
+                                <p className="libSavedRouteLocation">📍 {route.locationLabel}</p>
+                              )}
+                              {route.note && (
+                                <p className="libSavedRouteNote">{route.note}</p>
+                              )}
+                              <p className="libSavedRouteDate">
+                                Saved {new Date(route.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                            </div>
+                            <button
+                              className="libSavedRouteDeleteBtn"
+                              onClick={() => handleDeleteSavedRoute(route.id)}
+                              aria-label="Delete route"
+                            >
+                              <img src={BinIcon} alt="Delete" style={{ width: '18px', height: '18px' }} />
+                            </button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          )}
         </div>
 
         {/* 🟢 CONFIRMATION MODAL */}
@@ -826,6 +1098,17 @@ export default function LibPage() {
               isOpen={!!routineToDelete}
               onClose={() => setRoutineToDelete(null)}
               onConfirm={confirmDelete}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* 🟢 SAVE ROUTE MODAL */}
+        <AnimatePresence>
+          {isSaveRouteModalOpen && (
+            <SaveRouteModal
+              isOpen={isSaveRouteModalOpen}
+              onClose={() => setIsSaveRouteModalOpen(false)}
+              onSave={handleSaveRoute}
             />
           )}
         </AnimatePresence>

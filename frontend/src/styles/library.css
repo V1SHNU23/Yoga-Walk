@@ -29,6 +29,7 @@
   justify-content: space-between;
   margin-bottom: 12px;
   min-height: 44px; /* Ensure stability when switching views */
+  gap: 12px;
 }
 
 .libTitle {
@@ -36,6 +37,7 @@
   font-weight: 700;
   color: #0a6f00;
   margin: 0;
+  flex: 1;
 }
 
 .libHeaderRow {
@@ -154,6 +156,68 @@
   background: #e5f6e5;
   color: #0a6f00;
   font-weight: 600;
+}
+
+/* Search Pill in Header */
+.libHeader .libSearchPill {
+  flex-shrink: 0;
+}
+
+/* Filter bar (difficulty chips) */
+.libFilterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.libFilterBar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.libFilterBar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+}
+
+.libFilterChip {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(97, 179, 41, 0.4);
+  background: #ffffff;
+  font-size: 13px;
+  color: #526b57;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+}
+
+.libFilterChip:focus-visible {
+  outline: 2px solid #0a6f00;
+  outline-offset: 2px;
+}
+
+.libFilterChip:active {
+  transform: scale(0.97);
+}
+
+.libFilterChipActive {
+  background: #e5f6e5;
+  border-color: #61b329;
+  color: #0a6f00;
+  font-weight: 600;
+}
+
+.libFilterChipIcon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  vertical-align: middle;
 }
 
 /* List Container */
@@ -457,6 +521,200 @@
   margin: 0 0 10px 4px;
   font-weight: 600;
   letter-spacing: 0.5px;
+}
+
+/* Saved Routes Section */
+.libSavedRoutesSection {
+  margin-top: 24px;
+}
+
+.libSavedRoutesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.libSavedRoutesHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.libSavedRoutesHeader .libSectionTitle {
+  margin: 0;
+}
+
+.libSaveRouteBtn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #61b329;
+  color: white;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.libSaveRouteBtn:hover {
+  background: #4a8c20;
+}
+
+.libSaveRouteBtn:active {
+  transform: scale(0.95);
+}
+
+/* Toggle Switch */
+.libToggleSwitch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.libToggleSwitch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.libToggleSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #d0d0d0;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.libToggleSlider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.libToggleSwitch input:checked + .libToggleSlider {
+  background-color: #61b329;
+}
+
+.libToggleSwitch input:checked + .libToggleSlider:before {
+  transform: translateX(20px);
+}
+
+.libToggleSwitch input:focus-visible + .libToggleSlider {
+  outline: 2px solid #0a6f00;
+  outline-offset: 2px;
+}
+
+/* Saved Routes List */
+.libSavedRoutesList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.libSavedRouteCard {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(97, 179, 41, 0.40);
+  margin-bottom: 0;
+}
+
+.libSavedRouteContent {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.libSavedRouteMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.libSavedRouteName {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #173a22;
+}
+
+.libSavedRouteLocation {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  color: #526b57;
+}
+
+.libSavedRouteNote {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: #6a7a6e;
+  line-height: 1.4;
+}
+
+.libSavedRouteDate {
+  margin: 0;
+  font-size: 11px;
+  color: #8a9a8e;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.libSavedRouteDeleteBtn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.libSavedRouteDeleteBtn:hover {
+  opacity: 1;
+}
+
+.libSavedRouteDeleteBtn:active {
+  transform: scale(0.9);
+}
+
+.libSavedRoutesCard {
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #e9f7dd 0%, #ffffff 100%);
+  border: 1px dashed rgba(97, 179, 41, 0.5);
+}
+
+.libSavedRoutesTitle {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #173a22;
+}
+
+.libSavedRoutesText {
+  margin: 0;
+  font-size: 13px;
+  color: #526b57;
+  line-height: 1.4;
 }
 
 /* Add Button (Circle) */
@@ -929,6 +1187,65 @@
   background-color: #fff5f5; 
   border: 1px solid #c0392b; 
   color: #c0392b;            
+}
+
+.libModalBtn.save {
+  background-color: #e9f7dd; 
+  border: 1px solid #61b329; 
+  color: #0a6f00;            
+}
+
+.libModalBtn.save:hover {
+  background-color: #d4f0c4;
+}
+
+/* Modal Form Styles */
+.libModalFormGroup {
+  margin-bottom: 16px;
+}
+
+.libModalLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #173a22;
+  margin-bottom: 6px;
+}
+
+.libModalRequired {
+  color: #c0392b;
+}
+
+.libModalInput,
+.libModalTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(97, 179, 41, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #173a22;
+  background: #ffffff;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.libModalInput:focus,
+.libModalTextarea:focus {
+  outline: none;
+  border-color: #61b329;
+}
+
+.libModalTextarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.libModalHelperText {
+  margin: 0 0 16px 0;
+  font-size: 12px;
+  color: #6a7a6e;
+  line-height: 1.4;
 }
 /* List Container */
 .libList {
