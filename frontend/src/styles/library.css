@@ -216,8 +216,16 @@
 .libFilterChipIcon {
   width: 14px;
   height: 14px;
-  margin-right: 4px;
-  vertical-align: middle;
+  margin: 0;
+  display: block;
+}
+
+.libFilterChip:has(.libFilterChipIcon:only-child) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  min-width: 32px;
 }
 
 /* List Container */
