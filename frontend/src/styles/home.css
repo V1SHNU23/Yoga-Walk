@@ -91,6 +91,61 @@
   color: #2c7a3f;
 }
 
+/* Streak card */
+.streakCard {
+  margin: 0 0 20px 0;
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(97, 179, 41, 0.1) 0%, rgba(97, 179, 41, 0.05) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(97, 179, 41, 0.25);
+  box-shadow: 0 2px 10px rgba(97, 179, 41, 0.12);
+  min-height: 100px; /* Prevent layout shift during loading */
+}
+
+.streakInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.streakEmoji {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.streakText {
+  font-size: 19px;
+  font-weight: 700;
+  color: #2c7a3f;
+  line-height: 1.3;
+}
+
+.bestStreakInfo {
+  font-size: 13px;
+  color: #526b57;
+  opacity: 0.75;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.lastWalkInfo {
+  font-size: 14px;
+  color: #526b57;
+  opacity: 0.85;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.encouragementCopy {
+  font-size: 14px;
+  color: #61b329;
+  font-weight: 500;
+  margin-top: 4px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
 /* Remove .homeSubtitle and use this instead */
 .homeQuote {
   margin: 0 0 24px 0;
