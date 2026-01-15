@@ -51,7 +51,7 @@ function DeleteConfirmationModal({ isOpen, onClose, onConfirm }) {
 }
 
 // --- SUB-COMPONENT: SAVED ROUTE DETAILS MODAL ---
-function SavedRouteDetailsModal({ route, onClose }) {
+function SavedRouteDetailsModal({ route, onClose, onStartWalk }) {
   if (!route) return null;
 
   return (
@@ -65,10 +65,10 @@ function SavedRouteDetailsModal({ route, onClose }) {
       >
         <h3 className="libModalTitle">{route.name}</h3>
 
-        {route.locationLabel && (
+        {route.destinationLabel && (
           <div style={{ marginBottom: "10px" }}>
             <h4 className="libCardTitle">Location</h4>
-            <p className="libCardText">{route.locationLabel}</p>
+            <p className="libCardText">{route.destinationLabel}</p>
           </div>
         )}
 
@@ -89,6 +89,13 @@ function SavedRouteDetailsModal({ route, onClose }) {
         </p>
 
         <div className="libModalActions">
+          <button
+            type="button"
+            className="libModalBtn save"
+            onClick={onStartWalk}
+          >
+            Start Walk
+          </button>
           <button
             type="button"
             className="libModalBtn cancel"
@@ -199,14 +206,7 @@ export default function LibPage() {
   
   // --- SAVED ROUTES STATE ---
   // TODO: Replace with backend API call when available
-  const [savedRoutes, setSavedRoutes] = useState(() => {
-    try {
-      const stored = localStorage.getItem("yogaWalkSavedRoutes");
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [savedRoutes, setSavedRoutes] = useState([]);
   const [isSaveRouteModalOpen, setIsSaveRouteModalOpen] = useState(false);
   const [selectedSavedRoute, setSelectedSavedRoute] = useState(null);
   
@@ -233,16 +233,8 @@ export default function LibPage() {
   // --- INITIAL LOAD ---
   useEffect(() => {
     fetchData();
+    fetchSavedRoutes();
   }, []);
-
-  // --- SAVED ROUTES PERSISTENCE ---
-  useEffect(() => {
-    try {
-      localStorage.setItem("yogaWalkSavedRoutes", JSON.stringify(savedRoutes));
-    } catch (e) {
-      console.error("Failed to save routes to localStorage:", e);
-    }
-  }, [savedRoutes]);
 
   // --- DRAG-TO-DISMISS HANDLERS ---
   useEffect(() => {
@@ -380,6 +372,22 @@ export default function LibPage() {
       });
   }
 
+  function fetchSavedRoutes() {
+    fetch(`${API_BASE}/api/saved_routes`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSavedRoutes(data);
+        } else {
+          setSavedRoutes([]);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching saved routes:", err);
+        setSavedRoutes([]);
+      });
+  }
+
   // --- FAVORITES HANDLERS ---
   function toggleFavorite(id) {
     setPoses((prev) =>
@@ -391,15 +399,32 @@ export default function LibPage() {
 
   // --- SAVED ROUTES HANDLERS ---
   function handleSaveRoute(routeData) {
-    const newRoute = {
-      id: Date.now().toString(),
-      ...routeData
-    };
-    setSavedRoutes(prev => [...prev, newRoute]);
+    fetch(`${API_BASE}/api/saved_routes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(routeData),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to save route");
+        return res.json();
+      })
+      .then((created) => {
+        setSavedRoutes((prev) => [created, ...prev]);
+      })
+      .catch((err) => {
+        console.error("Error saving route:", err);
+      });
   }
 
   function handleDeleteSavedRoute(id) {
-    setSavedRoutes(prev => prev.filter(route => route.id !== id));
+    fetch(`${API_BASE}/api/saved_routes/${id}`, { method: "DELETE" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to delete route");
+        setSavedRoutes((prev) => prev.filter((route) => route.id !== id));
+      })
+      .catch((err) => {
+        console.error("Error deleting saved route:", err);
+      });
   }
 
   // --- BUILDER LOGIC ---
@@ -536,6 +561,12 @@ export default function LibPage() {
   function handleStartRoutineWalk() {
      if (!selectedRoutine) return;
      navigate('/map', { state: { routine: selectedRoutine } });
+  }
+
+  function handleStartSavedRouteWalk(route) {
+    if (!route) return;
+    navigate("/map", { state: { savedRoute: route } });
+    setSelectedSavedRoute(null);
   }
 
   // --- FILTERING ---
@@ -1004,9 +1035,9 @@ export default function LibPage() {
                         <div className="libSavedRouteContent">
                           <div className="libSavedRouteMain">
                             <h4 className="libSavedRouteName">{route.name}</h4>
-                            {route.locationLabel && (
+                            {route.destinationLabel && (
                               <p className="libSavedRouteLocation">
-                                📍 {route.locationLabel}
+                                📍 {route.destinationLabel}
                               </p>
                             )}
                             {route.note && (
@@ -1072,6 +1103,7 @@ export default function LibPage() {
             <SavedRouteDetailsModal
               route={selectedSavedRoute}
               onClose={() => setSelectedSavedRoute(null)}
+              onStartWalk={() => handleStartSavedRouteWalk(selectedSavedRoute)}
             />
           )}
         </AnimatePresence>

@@ -74,6 +74,27 @@ ELSE
 BEGIN
     PRINT 'ℹ️ RoutinePoses Table already exists';
 END
+
+-- C. Create Saved Routes Table
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='saved_routes' and xtype='U')
+BEGIN
+    CREATE TABLE saved_routes (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        name NVARCHAR(200) NOT NULL,
+        note NVARCHAR(MAX) NULL,
+        destination_lat FLOAT NOT NULL,
+        destination_lng FLOAT NOT NULL,
+        destination_label NVARCHAR(255) NOT NULL,
+        routes_json NVARCHAR(MAX) NOT NULL,
+        active_route_index INT NOT NULL,
+        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+    PRINT '✅ Created saved_routes Table';
+END
+ELSE
+BEGIN
+    PRINT 'ℹ️ saved_routes Table already exists';
+END
 """
 
 # 3. Execute

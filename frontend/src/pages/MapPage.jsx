@@ -798,12 +798,28 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    if (location.state && location.state.routine) {
-        const routine = location.state.routine;
-        setActiveRoutine(routine);
-        setCheckpointCount(routine.poses.length);
-        setRoutes([]);
-        setCheckpoints([]);
+    if (!location.state) return;
+
+    if (location.state.savedRoute) {
+      const savedRoute = location.state.savedRoute;
+      if (savedRoute.destination) setDestination(savedRoute.destination);
+      if (savedRoute.destinationLabel) setDestinationLabel(savedRoute.destinationLabel);
+      if (savedRoute.routes && savedRoute.routes.length > 0) {
+        setRoutes(savedRoute.routes);
+        setActiveRouteIndex(savedRoute.activeRouteIndex || 0);
+      }
+      setSelectionStep("done");
+      setSheetOpen(true);
+      setSearchQuery(savedRoute.destinationLabel || "");
+      return;
+    }
+
+    if (location.state.routine) {
+      const routine = location.state.routine;
+      setActiveRoutine(routine);
+      setCheckpointCount(routine.poses.length);
+      setRoutes([]);
+      setCheckpoints([]);
     }
   }, [location.state]);
 
@@ -1650,19 +1666,31 @@ export default function MapPage() {
 
   // Save Route handler (shared with Library via localStorage)
   function handleSaveRouteFromMap(routeData) {
-    try {
-      const stored = localStorage.getItem("yogaWalkSavedRoutes");
-      const existing = stored ? JSON.parse(stored) : [];
-      const newRoute = {
-        id: Date.now().toString(),
-        ...routeData,
-      };
-      const updated = [...existing, newRoute];
-      localStorage.setItem("yogaWalkSavedRoutes", JSON.stringify(updated));
-    } catch (e) {
-      console.error("Failed to save route from map:", e);
-    }
-    setIsSaveRouteModalOpen(false);
+    const payload = {
+      name: routeData.name,
+      note: routeData.note,
+      destination: destination || null,
+      destinationLabel: destinationLabel || "",
+      routes: routes.length > 0 ? routes : [],
+      activeRouteIndex: routes.length > 0 ? activeRouteIndex : 0,
+      createdAt: routeData.createdAt,
+    };
+
+    fetch(`${apiBase}/api/saved_routes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to save route");
+        return res.json();
+      })
+      .catch((e) => {
+        console.error("Failed to save route from map:", e);
+      })
+      .finally(() => {
+        setIsSaveRouteModalOpen(false);
+      });
   }
 
   function handleReset() {
@@ -1818,6 +1846,7 @@ export default function MapPage() {
           isOpen={isSaveRouteModalOpen}
           onClose={() => setIsSaveRouteModalOpen(false)}
           onSave={handleSaveRouteFromMap}
+          destinationLabel={destinationLabel}
         />
 
         <MapContainer

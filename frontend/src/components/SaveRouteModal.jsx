@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 // Shared Save Route Modal for Library + Map completion flow
-export default function SaveRouteModal({ isOpen, onClose, onSave }) {
+export default function SaveRouteModal({ isOpen, onClose, onSave, destinationLabel }) {
   const [routeName, setRouteName] = useState("");
   const [note, setNote] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
@@ -18,9 +18,9 @@ export default function SaveRouteModal({ isOpen, onClose, onSave }) {
       });
       setRouteName(`Yoga Walk – ${dateStr}`);
       setNote("");
-      setLocationLabel("");
+      setLocationLabel(destinationLabel || "");
     }
-  }, [isOpen]);
+  }, [isOpen, destinationLabel]);
 
   if (!isOpen) return null;
 
@@ -82,8 +82,8 @@ export default function SaveRouteModal({ isOpen, onClose, onSave }) {
               type="text"
               className="libModalInput"
               value={locationLabel}
-              onChange={(e) => setLocationLabel(e.target.value)}
               placeholder="e.g., Central Park, Home neighborhood..."
+              readOnly
             />
           </div>
 

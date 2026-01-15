@@ -65,6 +65,20 @@ def generate_checkpoints(origin, destination, count):
         })
     return checkpoints
 
+def parse_iso_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        iso_value = value.replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(iso_value)
+        if parsed.tzinfo:
+            return parsed.astimezone(tz=None).replace(tzinfo=None)
+        return parsed
+    except Exception:
+        return None
+
 # --- CORE ROUTES ---
 
 @app.route("/api/poses", methods=["GET"])
@@ -282,6 +296,110 @@ def get_walk_history():
             if record['WalkDate']: record['WalkDate'] = record['WalkDate'].isoformat()
             history.append(record)
         return jsonify({"count": len(history), "history": history})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- SAVED ROUTES ---
+@app.route("/api/saved_routes", methods=["POST"])
+def create_saved_route():
+    data = request.get_json() or {}
+    name = data.get("name")
+    note = data.get("note")
+    destination = data.get("destination") or {}
+    destination_label = data.get("destinationLabel")
+    routes = data.get("routes")
+    active_route_index = data.get("activeRouteIndex")
+    created_at_raw = data.get("createdAt")
+
+    if not name or not destination_label or routes is None or active_route_index is None:
+        return jsonify({"error": "Missing required fields"}), 400
+    if "lat" not in destination or "lng" not in destination:
+        return jsonify({"error": "Destination lat/lng required"}), 400
+
+    created_at = parse_iso_datetime(created_at_raw) or datetime.utcnow()
+    routes_json = json.dumps(routes)
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"error": "Database not connected"}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO saved_routes
+            (name, note, destination_lat, destination_lng, destination_label, routes_json, active_route_index, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            name,
+            note,
+            float(destination["lat"]),
+            float(destination["lng"]),
+            destination_label,
+            routes_json,
+            int(active_route_index),
+            created_at,
+        )
+        cursor.execute("SELECT @@IDENTITY")
+        row = cursor.fetchone()
+        conn.commit()
+
+        saved_id = int(row[0]) if row else None
+        return jsonify({
+            "id": saved_id,
+            "name": name,
+            "note": note,
+            "destination": {"lat": float(destination["lat"]), "lng": float(destination["lng"])},
+            "destinationLabel": destination_label,
+            "routes": routes,
+            "activeRouteIndex": int(active_route_index),
+            "createdAt": created_at.isoformat()
+        }), 201
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/saved_routes", methods=["GET"])
+def get_saved_routes():
+    conn = get_db()
+    if not conn:
+        return jsonify({"error": "Database not connected"}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, note, destination_lat, destination_lng, destination_label, routes_json, active_route_index, created_at
+            FROM saved_routes
+            ORDER BY created_at DESC
+        """)
+        routes = []
+        for row in cursor.fetchall():
+            routes.append({
+                "id": row.id,
+                "name": row.name,
+                "note": row.note,
+                "destination": {"lat": row.destination_lat, "lng": row.destination_lng},
+                "destinationLabel": row.destination_label,
+                "routes": json.loads(row.routes_json) if row.routes_json else [],
+                "activeRouteIndex": row.active_route_index,
+                "createdAt": row.created_at.isoformat() if row.created_at else None
+            })
+        return jsonify(routes)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/saved_routes/<int:saved_id>", methods=["DELETE"])
+def delete_saved_route(saved_id):
+    conn = get_db()
+    if not conn:
+        return jsonify({"error": "Database not connected"}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM saved_routes WHERE id = ?", saved_id)
+        conn.commit()
+        return jsonify({"success": True}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
