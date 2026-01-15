@@ -30,10 +30,16 @@ export default function SaveRouteModal({ isOpen, onClose, onSave, destinationLab
       alert("Please enter a route name.");
       return;
     }
+    console.log("[SavedRoutes Debug] SaveRouteModal submit", {
+      name: routeName.trim(),
+      note: note.trim(),
+      destinationLabel: locationLabel.trim(),
+      createdAt: new Date().toISOString(),
+    });
     onSave({
       name: routeName.trim(),
       note: note.trim(),
-      locationLabel: locationLabel.trim(),
+      destinationLabel: locationLabel.trim(),
       createdAt: new Date().toISOString(),
     });
   };
@@ -86,6 +92,7 @@ export default function SaveRouteModal({ isOpen, onClose, onSave, destinationLab
               readOnly
             />
           </div>
+
 
           <p className="libModalHelperText">
             💡 Saved routes are for reuse; walk history is automatic.

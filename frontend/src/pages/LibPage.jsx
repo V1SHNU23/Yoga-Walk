@@ -12,7 +12,7 @@ import BinIcon from "../icons/bin.svg";
 import TickIcon from "../icons/tick.svg"; 
 
 // --- CONFIG ---
-const API_BASE = "http://127.0.0.1:5000"; 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000"; 
 const DURATION_OPTIONS = ["30 sec", "45 sec", "1 min", "2 min"];
 const FILTER_OPTIONS = ["All", "Favorites", "Beginner", "Intermediate", "Advanced"];
 
@@ -233,8 +233,13 @@ export default function LibPage() {
   // --- INITIAL LOAD ---
   useEffect(() => {
     fetchData();
-    fetchSavedRoutes();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "routes") {
+      fetchSavedRoutes();
+    }
+  }, [activeTab]);
 
   // --- DRAG-TO-DISMISS HANDLERS ---
   useEffect(() => {
@@ -374,16 +379,28 @@ export default function LibPage() {
 
   function fetchSavedRoutes() {
     fetch(`${API_BASE}/api/saved_routes`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          return res.text().then((text) => {
+            console.warn("[SavedRoutes Debug] GET /api/saved_routes failed", {
+              status: res.status,
+              body: text,
+            });
+            throw new Error("Failed to fetch saved routes");
+          });
+        }
+        return res.json();
+      })
       .then((data) => {
         if (Array.isArray(data)) {
           setSavedRoutes(data);
         } else {
+          console.warn("[SavedRoutes Debug] GET /api/saved_routes non-array", data);
           setSavedRoutes([]);
         }
       })
       .catch((err) => {
-        console.error("Error fetching saved routes:", err);
+        console.error("[SavedRoutes Debug] Error fetching saved routes:", err);
         setSavedRoutes([]);
       });
   }
@@ -399,20 +416,40 @@ export default function LibPage() {
 
   // --- SAVED ROUTES HANDLERS ---
   function handleSaveRoute(routeData) {
+    if (
+      !routeData.destination ||
+      !routeData.destinationLabel ||
+      !Array.isArray(routeData.routes) ||
+      routeData.activeRouteIndex == null
+    ) {
+      alert("Saved routes must include a destination and route options. Please save from the map after selecting a destination.");
+      console.warn("[SavedRoutes Debug] Missing required saved route fields (LibPage)", routeData);
+      return;
+    }
+
+    console.log("[SavedRoutes Debug] POST /api/saved_routes payload (LibPage)", routeData);
     fetch(`${API_BASE}/api/saved_routes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(routeData),
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to save route");
+        if (!res.ok) {
+          return res.text().then((text) => {
+            console.warn("[SavedRoutes Debug] POST /api/saved_routes failed (LibPage)", {
+              status: res.status,
+              body: text,
+            });
+            throw new Error("Failed to save route");
+          });
+        }
         return res.json();
       })
       .then((created) => {
         setSavedRoutes((prev) => [created, ...prev]);
       })
       .catch((err) => {
-        console.error("Error saving route:", err);
+        console.error("[SavedRoutes Debug] Error saving route (LibPage):", err);
       });
   }
 

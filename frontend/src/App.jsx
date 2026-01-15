@@ -76,10 +76,7 @@ function App() {
                 </Routes>
               </div>
 
-              <AppNav
-                activePage={activePage}
-                onChangePage={handleNavChange}
-              />
+              <AppNav />
             </div>
           </div>
         </div>

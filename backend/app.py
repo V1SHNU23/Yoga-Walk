@@ -303,6 +303,7 @@ def get_walk_history():
 @app.route("/api/saved_routes", methods=["POST"])
 def create_saved_route():
     data = request.get_json() or {}
+    print("[SavedRoutes Debug] create_saved_route payload:", data)
     name = data.get("name")
     note = data.get("note")
     destination = data.get("destination") or {}
@@ -312,8 +313,15 @@ def create_saved_route():
     created_at_raw = data.get("createdAt")
 
     if not name or not destination_label or routes is None or active_route_index is None:
+        print("[SavedRoutes Debug] create_saved_route missing fields", {
+            "name": bool(name),
+            "destinationLabel": bool(destination_label),
+            "routes_present": routes is not None,
+            "activeRouteIndex_present": active_route_index is not None,
+        })
         return jsonify({"error": "Missing required fields"}), 400
     if "lat" not in destination or "lng" not in destination:
+        print("[SavedRoutes Debug] create_saved_route missing destination lat/lng", destination)
         return jsonify({"error": "Destination lat/lng required"}), 400
 
     created_at = parse_iso_datetime(created_at_raw) or datetime.utcnow()
@@ -340,9 +348,11 @@ def create_saved_route():
             int(active_route_index),
             created_at,
         )
+        print("[SavedRoutes Debug] create_saved_route insert executed")
         cursor.execute("SELECT @@IDENTITY")
         row = cursor.fetchone()
         conn.commit()
+        print("[SavedRoutes Debug] create_saved_route committed", {"id": int(row[0]) if row else None})
 
         saved_id = int(row[0]) if row else None
         return jsonify({
@@ -374,7 +384,9 @@ def get_saved_routes():
             ORDER BY created_at DESC
         """)
         routes = []
-        for row in cursor.fetchall():
+        rows = cursor.fetchall()
+        print("[SavedRoutes Debug] get_saved_routes row count", len(rows))
+        for row in rows:
             routes.append({
                 "id": row.id,
                 "name": row.name,
@@ -387,6 +399,7 @@ def get_saved_routes():
             })
         return jsonify(routes)
     except Exception as e:
+        print("[SavedRoutes Debug] get_saved_routes error", e)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/saved_routes/<int:saved_id>", methods=["DELETE"])

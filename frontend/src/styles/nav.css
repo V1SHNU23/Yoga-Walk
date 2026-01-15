@@ -38,6 +38,7 @@
   align-items: center;
   cursor: pointer;
   padding: 4px 0;
+  text-decoration: none;
 }
 
 .navBtnActive {
@@ -55,7 +56,12 @@
   opacity: 0;
 }
 
-.navBtn:hover .filled,
+@media (hover: hover) and (pointer: fine) {
+  .navBtn:hover .filled {
+    opacity: 1;
+  }
+}
+
 .navBtnActive .filled {
   opacity: 1;
 }
@@ -64,9 +70,15 @@
   font-size: 11px;
   margin-top: 34px;
   color: #0a6f00;
+  text-decoration: none;
 }
 
-.navBtn:hover .navLabel,
+@media (hover: hover) and (pointer: fine) {
+  .navBtn:hover .navLabel {
+    font-weight: 700;
+  }
+}
+
 .navBtnActive .navLabel {
   font-weight: 700;
 }

@@ -696,6 +696,7 @@ export default function MapPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [finalMetrics, setFinalMetrics] = useState(null);
   const [isSaveRouteModalOpen, setIsSaveRouteModalOpen] = useState(false);
+  const [saveRouteDestinationLabel, setSaveRouteDestinationLabel] = useState("");
   const hasSavedWalkRef = useRef(false);
 
   // --- VOICE GUIDANCE STATE ---
@@ -1664,17 +1665,72 @@ export default function MapPage() {
     handleReset();
   };
 
+  const handleOpenSaveRouteModal = async () => {
+    const resolvedDestination = destination || finalMetrics?.end_coords || null;
+    if (!resolvedDestination) {
+      alert("Please select a destination before saving this route.");
+      return;
+    }
+
+    let resolvedLabel = destinationLabel || "";
+    if (!resolvedLabel) {
+      try {
+        resolvedLabel = await reverseGeocode(resolvedDestination.lat, resolvedDestination.lng);
+        if (resolvedLabel) {
+          setDestinationLabel(resolvedLabel);
+        }
+      } catch (e) {
+        console.warn("[SavedRoutes Debug] Failed to auto-generate destination label", e);
+      }
+    }
+
+    if (!resolvedLabel) {
+      alert("Please select a destination with an address before saving this route.");
+      return;
+    }
+
+    setSaveRouteDestinationLabel(resolvedLabel);
+    setIsSaveRouteModalOpen(true);
+  };
+
   // Save Route handler (shared with Library via localStorage)
-  function handleSaveRouteFromMap(routeData) {
+  async function handleSaveRouteFromMap(routeData) {
+    const resolvedDestination = destination || finalMetrics?.end_coords || null;
+    if (!resolvedDestination) {
+      alert("Please select a destination before saving this route.");
+      return;
+    }
+
+    let resolvedLabel = destinationLabel || routeData.destinationLabel || "";
+    if (!resolvedLabel) {
+      try {
+        resolvedLabel = await reverseGeocode(resolvedDestination.lat, resolvedDestination.lng);
+        if (resolvedLabel) {
+          setDestinationLabel(resolvedLabel);
+        }
+      } catch (e) {
+        console.warn("[SavedRoutes Debug] Failed to auto-generate destination label", e);
+      }
+    }
+
+    if (!resolvedLabel) {
+      alert("Please select a destination with an address before saving this route.");
+      return;
+    }
+
     const payload = {
       name: routeData.name,
       note: routeData.note,
-      destination: destination || null,
-      destinationLabel: destinationLabel || "",
+      destination: resolvedDestination,
+      destinationLabel: resolvedLabel,
       routes: routes.length > 0 ? routes : [],
       activeRouteIndex: routes.length > 0 ? activeRouteIndex : 0,
       createdAt: routeData.createdAt,
     };
+    console.log("[SavedRoutes Debug] POST /api/saved_routes payload (MapPage)", {
+      destinationLabel: resolvedLabel,
+      payload,
+    });
 
     fetch(`${apiBase}/api/saved_routes`, {
       method: "POST",
@@ -1682,11 +1738,19 @@ export default function MapPage() {
       body: JSON.stringify(payload),
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to save route");
+        if (!res.ok) {
+          return res.text().then((text) => {
+            console.warn("[SavedRoutes Debug] POST /api/saved_routes failed (MapPage)", {
+              status: res.status,
+              body: text,
+            });
+            throw new Error("Failed to save route");
+          });
+        }
         return res.json();
       })
       .catch((e) => {
-        console.error("Failed to save route from map:", e);
+        console.error("[SavedRoutes Debug] Failed to save route from map:", e);
       })
       .finally(() => {
         setIsSaveRouteModalOpen(false);
@@ -1833,7 +1897,7 @@ export default function MapPage() {
             duration={finalMetrics.duration}
             checkpoints={finalMetrics.checkpoints}
             calories={finalMetrics.calories}
-            onSave={() => setIsSaveRouteModalOpen(true)}
+            onSave={handleOpenSaveRouteModal}
             onClose={() => {
               setShowSummary(false);
               handleReset();
@@ -1846,7 +1910,7 @@ export default function MapPage() {
           isOpen={isSaveRouteModalOpen}
           onClose={() => setIsSaveRouteModalOpen(false)}
           onSave={handleSaveRouteFromMap}
-          destinationLabel={destinationLabel}
+          destinationLabel={saveRouteDestinationLabel || destinationLabel}
         />
 
         <MapContainer
