@@ -102,7 +102,7 @@ Yoga-Walk/
 
 🎨 Design System
 Yoga Walk follows a strict nature-inspired design language:
-Primary Color: Yoga Green (#61b329)
+Primary Color: Yoga Green (#4d672a)
 UI Elements: Frosted glass cards, pill-shaped buttons, and soft shadows.
 Typography: Clean, sans-serif fonts for readability on the go.
 

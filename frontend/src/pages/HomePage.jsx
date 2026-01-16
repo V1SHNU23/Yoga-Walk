@@ -217,8 +217,9 @@ export default function HomePage() {
             disabled={false} 
             speed={3} 
             className="custom-shiny-text" 
-            color="#526b57"      
-            shineColor="#61b329" 
+            color="#f7c01b"      
+            shineColor="#4d672a"
+            secondaryColor="#4d672a"
           />
         </p>
 

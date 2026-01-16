@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f5f5f5",
-  "theme_color": "#61b329",
+  "theme_color": "#4d672a",
   "categories": ["health", "fitness", "lifestyle"],
   "icons": [
     {

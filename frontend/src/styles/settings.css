@@ -159,7 +159,7 @@
 }
 
 .settingsToggle input:checked + .settingsToggleTrack {
-  background: #61b329;
+  background: #4d672a;
 }
 
 .settingsToggle input:checked + .settingsToggleTrack .settingsToggleThumb {

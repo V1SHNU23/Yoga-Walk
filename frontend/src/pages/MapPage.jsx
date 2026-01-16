@@ -2027,7 +2027,7 @@ export default function MapPage() {
               positions={routes[activeRouteIndex].coords}
               pathOptions={{ 
                 className: "route-line routeLineActive",
-                color: "#61b329",   
+                color: "#4d672a",   
                 weight: 6,          
                 opacity: 1.0        
               }}
@@ -2487,7 +2487,7 @@ export default function MapPage() {
                                   {activeRoutine ? `🧘 ${activeRoutine.title}` : "🧘 Yoga Checkpoints"}
                                 </span>
                                 {!activeRoutine && checkpointCount === recommendedCount && (
-                                    <span style={{ fontSize: '11px', color: '#61b329', fontWeight: '700', marginTop: '2px' }}>
+                                    <span style={{ fontSize: '11px', color: '#4d672a', fontWeight: '700', marginTop: '2px' }}>
                                       ✨ Recommended
                                     </span>
                                 )}

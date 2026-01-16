@@ -14,7 +14,7 @@ const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 // Simple SVG template for placeholder icon
 const createSVGIcon = (size) => `
 <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${size}" height="${size}" fill="#61b329" rx="${size * 0.2}"/>
+  <rect width="${size}" height="${size}" fill="#4d672a" rx="${size * 0.2}"/>
   <text 
     x="50%" 
     y="50%" 

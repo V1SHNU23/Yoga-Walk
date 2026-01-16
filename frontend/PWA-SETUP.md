@@ -24,7 +24,7 @@ You need to create icon files in these sizes:
    - Place iOS icons in `public/logo/ios/`
 
 2. **Create Manually**:
-   - Design a 512x512 icon (use your brand colors: #61b329)
+   - Design a 512x512 icon (use your brand colors: #4d672a)
    - Resize to all required sizes
    - Save Android icons as: `android-launchericon-{size}-{size}.png`
    - Save iOS icons as: `{size}.png`
@@ -94,7 +94,7 @@ frontend/public/logo/
 ### Update Manifest Colors
 
 Edit `public/manifest.webmanifest`:
-- `theme_color`: Color of browser UI (currently #61b329)
+- `theme_color`: Color of browser UI (currently #4d672a)
 - `background_color`: Splash screen color (currently #f5f5f5)
 
 ### Update Service Worker Cache

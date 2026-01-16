@@ -9,6 +9,7 @@ const ShinyText = ({
   className = '',
   color = '#b5b5b5',
   shineColor = '#ffffff',
+  secondaryColor = '#f7c01b',
   spread = 120,
   yoyo = false,
   pauseOnHover = false,
@@ -87,7 +88,7 @@ const ShinyText = ({
   }, [pauseOnHover]);
 
   const gradientStyle = {
-    backgroundImage: `linear-gradient(${spread}deg, ${color} 0%, ${color} 40%, ${shineColor} 50%, ${color} 60%, ${color} 100%)`,
+    backgroundImage: `linear-gradient(${spread}deg, ${color} 0%, ${color} 35%, ${shineColor} 45%, ${shineColor} 50%, ${shineColor} 55%, ${color} 65%, ${color} 100%)`,
     backgroundSize: '200% auto',
     WebkitBackgroundClip: 'text',
     backgroundClip: 'text',

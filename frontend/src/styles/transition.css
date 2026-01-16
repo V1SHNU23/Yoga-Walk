@@ -31,7 +31,7 @@
 /* Final message is larger */
 .transitionText.final {
   font-size: 36px;
-  color: #61b329;
+  color: #4d672a;
 }
 
 @keyframes breatheBackground {

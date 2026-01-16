@@ -139,7 +139,7 @@
   stroke-dasharray: 2000;
   stroke-dashoffset: 2000;
   animation: routeDraw 1.5s linear forwards;
-  stroke: #61b329;
+  stroke: #4d672a;
   stroke-width: 6; 
   opacity: 1;
 }
@@ -153,7 +153,7 @@
 }
 
 .routeLineAlt:hover {
-  stroke: #61b329;
+  stroke: #4d672a;
   opacity: 0.9;
   stroke-width: 6;
 }
@@ -183,7 +183,7 @@
 }
 
 .street-name-label {
-  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%);
+  background: linear-gradient(135deg, #4d672a 0%, #2d3c19 100%);
   color: #ffffff;
   padding: 6px 12px;
   border-radius: 16px;
@@ -191,7 +191,7 @@
   font-weight: 700;
   white-space: nowrap;
   box-shadow: 
-    0 2px 8px rgba(97, 179, 41, 0.4),
+    0 2px 8px rgba(77, 103, 42, 0.4),
     0 0 0 2px rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.3);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -225,10 +225,10 @@
 
 .route-label-pill:hover { transform: scale(1.1); background-color: #f9f9f9; }
 .route-label-pill.active {
-  background-color: #61b329;
+  background-color: #4d672a;
   color: white;
-  border-color: #4a8c20;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.4);
+  border-color: #2d3c19;
+  box-shadow: 0 4px 12px rgba(77, 103, 42, 0.4);
   transform: scale(1.1);
 }
 
@@ -237,9 +237,9 @@
   width: 24px; height: 24px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2px solid #61b329;
+  border: 2px solid #4d672a;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #61b329;
+  font-size: 12px; font-weight: 700; color: #4d672a;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
@@ -425,7 +425,7 @@
   display: flex; align-items: center; justify-content: center;
   padding: 0 12px; cursor: grab; color: #a0a0a0; touch-action: none;
 }
-.drag-handle:active { cursor: grabbing; color: #61b329; }
+.drag-handle:active { cursor: grabbing; color: #4d672a; }
 
 .timeline-dropdown {
   position: absolute; top: 110%; left: 0; right: 0;
@@ -444,7 +444,7 @@
 
 .dropdown-option-special {
   padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-  color: #61b329; font-weight: 600; font-size: 13px;
+  color: #4d672a; font-weight: 600; font-size: 13px;
   cursor: pointer; border-bottom: 1px solid #f0f0f0; background: #fcfdfc;
 }
 .dropdown-option-special:hover { background: #f4f8f1; }
@@ -467,8 +467,8 @@
 .checkpoint-header span:first-child { font-size: 15px; font-weight: 700; color: #1f3d1f; }
 .checkpoint-count-display {
   font-size: 16px; color: #ffffff; font-weight: 700;
-  background: #61b329; padding: 4px 12px; border-radius: 12px;
-  min-width: 24px; text-align: center; box-shadow: 0 2px 6px rgba(97, 179, 41, 0.3);
+  background: #4d672a; padding: 4px 12px; border-radius: 12px;
+  min-width: 24px; text-align: center; box-shadow: 0 2px 6px rgba(77, 103, 42, 0.3);
 }
 
 .styled-slider {
@@ -482,7 +482,7 @@
   cursor: pointer;
   position: relative;
   margin: 4px 0 0 0;
-  accent-color: #61b329;
+  accent-color: #4d672a;
 }
 
 .styled-slider::-webkit-slider-runnable-track {
@@ -503,7 +503,7 @@
   height: 24px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2px solid #61b329;
+  border: 2px solid #4d672a;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
   margin-top: -8px;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
@@ -514,7 +514,7 @@
   height: 24px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2px solid #61b329;
+  border: 2px solid #4d672a;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
@@ -569,21 +569,21 @@
 }
 .routeChoiceBtn:hover { 
   background-color: #f8fbf6; 
-  border-color: #61b329; 
+  border-color: #4d672a; 
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(97, 179, 41, 0.15);
+  box-shadow: 0 4px 10px rgba(77, 103, 42, 0.15);
 }
 .routeChoiceBtnActive {
-  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%);
+  background: linear-gradient(135deg, #4d672a 0%, #2d3c19 100%);
   color: #ffffff; 
-  border-color: #4a8c20;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.35);
+  border-color: #2d3c19;
+  box-shadow: 0 4px 12px rgba(77, 103, 42, 0.35);
   transform: scale(1.02);
 }
 .routeChoiceBtnActive:hover { 
   background: linear-gradient(135deg, #529922 0%, #3d7a1a 100%);
   transform: scale(1.03);
-  box-shadow: 0 6px 16px rgba(97, 179, 41, 0.4);
+  box-shadow: 0 6px 16px rgba(77, 103, 42, 0.4);
 }
 
 
@@ -616,18 +616,18 @@
   letter-spacing: 0.2px;
 }
 .btn-primary { 
-  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%); 
+  background: linear-gradient(135deg, #4d672a 0%, #2d3c19 100%); 
   color: #fff;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.3);
+  box-shadow: 0 4px 12px rgba(77, 103, 42, 0.3);
 }
 .btn-primary:hover {
   background: linear-gradient(135deg, #529922 0%, #3d7a1a 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(97, 179, 41, 0.4);
+  box-shadow: 0 6px 16px rgba(77, 103, 42, 0.4);
 }
 .btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(97, 179, 41, 0.3);
+  box-shadow: 0 2px 8px rgba(77, 103, 42, 0.3);
 }
 .btn-secondary { 
   background: #ffffff; 
@@ -775,7 +775,7 @@
   padding: 30px 20px;
   text-align: center;
   margin: 10px 0 25px 0;
-  box-shadow: 0 8px 24px rgba(97, 179, 41, 0.08); 
+  box-shadow: 0 8px 24px rgba(77, 103, 42, 0.08); 
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -854,7 +854,7 @@
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  color: #61b329;
+  color: #4d672a;
   font-size: 24px;
   display: flex;
   align-items: center;
@@ -885,7 +885,7 @@
 }
 
 .cp-dot.active {
-  background: #61b329;
+  background: #4d672a;
   width: 24px; 
   border-radius: 99px;
 }
@@ -893,7 +893,7 @@
 /* Action Button */
 .cp-complete-block-btn {
   width: 100%;
-  background: #61b329; 
+  background: #4d672a; 
   color: white;
   border: none;
   padding: 16px 24px;
@@ -902,7 +902,7 @@
   border-radius: 999px; 
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 4px 15px rgba(97, 179, 41, 0.35);
+  box-shadow: 0 4px 15px rgba(77, 103, 42, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -911,13 +911,13 @@
 
 .cp-complete-block-btn:active {
   transform: scale(0.98) translateY(0);
-  box-shadow: 0 2px 8px rgba(97, 179, 41, 0.3);
+  box-shadow: 0 2px 8px rgba(77, 103, 42, 0.3);
 }
 
 .cp-complete-block-btn:hover {
   background: #529e22;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(97, 179, 41, 0.45);
+  box-shadow: 0 8px 20px rgba(77, 103, 42, 0.45);
 }
 
 @keyframes popUp {
@@ -977,7 +977,7 @@
   border-radius: 50%;
   background: #f4f8f1;
   border: 1px solid #e9f7dd;
-  color: #61b329;
+  color: #4d672a;
   font-size: 28px;
   font-weight: 300;
   display: flex;
@@ -989,12 +989,12 @@
 }
 
 .active-walk-back-btn:hover {
-  background: #61b329;
+  background: #4d672a;
   color: #ffffff;
-  border-color: #61b329;
+  border-color: #4d672a;
 }
 
-.directionCard { background-color: #e9f7dd; padding: 20px; border-radius: 20px; border: 2px solid #61b329; margin-bottom: 24px; text-align: left; box-shadow: 0 4px 10px rgba(97, 179, 41, 0.15); }
+.directionCard { background-color: #e9f7dd; padding: 20px; border-radius: 20px; border: 2px solid #4d672a; margin-bottom: 24px; text-align: left; box-shadow: 0 4px 10px rgba(77, 103, 42, 0.15); }
 .directionLabel { font-size: 12px; text-transform: uppercase; color: #4a6e4d; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px; }
 .directionMain { font-size: 18px; font-weight: 700; color: #1f3d1f; line-height: 1.4; }
 .directionSub { margin-top: 8px; font-size: 14px; color: #4a6e4d; display: flex; align-items: center; gap: 6px; }
@@ -1042,7 +1042,7 @@
 
 .voice-toggle-btn.active {
   background: #e9f7dd; 
-  border: 2px solid #61b329; 
+  border: 2px solid #4d672a; 
 }
 
 .voice-toggle-btn img,
@@ -1104,7 +1104,7 @@
 /* 3. The Buttons (Plus & Minus) */
 .leaflet-bar a {
   background-color: rgba(255, 255, 255, 0.95) !important; 
-  color: #61b329 !important;                              
+  color: #4d672a !important;                              
   width: 40px !important;                                 
   height: 40px !important;
   line-height: 44px !important;                          
@@ -1218,7 +1218,7 @@
 }
 
 .voice-toggle-btn.enabled {
-  border: 2px solid #61b329;
+  border: 2px solid #4d672a;
 }
 
 .voice-toggle-btn img {
@@ -1233,10 +1233,10 @@
   margin-top: 0;
   margin-bottom: 24px;
   padding: 24px 20px;
-  background: linear-gradient(135deg, rgba(97, 179, 41, 0.08) 0%, rgba(97, 179, 41, 0.12) 100%);
+  background: linear-gradient(135deg, rgba(77, 103, 42, 0.08) 0%, rgba(77, 103, 42, 0.12) 100%);
   border-radius: 20px;
-  border: 1.5px solid rgba(97, 179, 41, 0.25);
-  box-shadow: 0 2px 16px rgba(97, 179, 41, 0.12);
+  border: 1.5px solid rgba(77, 103, 42, 0.25);
+  box-shadow: 0 2px 16px rgba(77, 103, 42, 0.12);
 }
 
 .route-selection-title {
@@ -1396,13 +1396,13 @@
 }
 
 .themeSelect:hover {
-  border-color: #61b329;
-  box-shadow: 0 2px 10px rgba(97, 179, 41, 0.1);
+  border-color: #4d672a;
+  box-shadow: 0 2px 10px rgba(77, 103, 42, 0.1);
 }
 
 .themeSelect:focus {
-  border-color: #61b329;
-  box-shadow: 0 2px 12px rgba(97, 179, 41, 0.15);
+  border-color: #4d672a;
+  box-shadow: 0 2px 12px rgba(77, 103, 42, 0.15);
 }
 
 /* --- Routes Container Spacing --- */
@@ -1462,11 +1462,11 @@
 }
 
 .mode-btn.active {
-  background: #61b329;
-  border: 2px solid #4a8c20;
+  background: #4d672a;
+  border: 2px solid #2d3c19;
   opacity: 1;
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(97, 179, 41, 0.4);
+  box-shadow: 0 6px 16px rgba(77, 103, 42, 0.4);
 }
 
 /* Ensure emoji stays sharp */
@@ -1515,7 +1515,7 @@
   width: 16px;
   height: 16px;
   margin-right: 8px;
-  /* Filter to approximate #61b329 green from black */
+  /* Filter to approximate #4d672a green from black */
   filter: invert(55%) sepia(34%) saturate(942%) hue-rotate(65deg) brightness(96%) contrast(89%);
 }
 
@@ -1548,7 +1548,7 @@
 .search-focus-cancel {
   background: none;
   border: none;
-  color: #61b329;
+  color: #4d672a;
   font-size: 17px;
   font-weight: 500;
   cursor: pointer;
@@ -1649,14 +1649,14 @@
 .magic-menu-title {
   font-size: 11px;
   font-weight: bold;
-  color: #61b329;
+  color: #4d672a;
   padding-left: 4px;
   margin-bottom: 2px;
 }
 
 .magic-time-btn {
   background: #e9f7dd;
-  border: 1px solid #61b329;
+  border: 1px solid #4d672a;
   border-radius: 12px;
   padding: 6px 12px;
   color: #125316;
@@ -1667,7 +1667,7 @@
 }
 
 .magic-time-btn:hover {
-  background: #61b329;
+  background: #4d672a;
   color: white;
 }
 

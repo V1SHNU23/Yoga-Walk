@@ -90,12 +90,12 @@ export default function HistoryPage({ onBack }) {
         </div>
         <div className="historyContent" style={{ paddingTop: '16px' }}>
              <div style={{ 
-                background: 'linear-gradient(135deg, #61b329 0%, #4d9920 100%)', 
+                background: 'linear-gradient(135deg, #4d672a 0%, #2d3c19 100%)', 
                 borderRadius: '20px', 
                 padding: '20px', 
                 color: 'white',
                 marginBottom: '20px',
-                boxShadow: '0 8px 20px rgba(97, 179, 41, 0.25)'
+                boxShadow: '0 8px 20px rgba(77, 103, 42, 0.25)'
             }}>
                 <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '4px' }}>
                     {formatDate(selectedWalk.WalkDate)}
@@ -127,7 +127,7 @@ export default function HistoryPage({ onBack }) {
             ) : walkReflections.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {walkReflections.map((item, idx) => (
-                        <Card key={idx} style={{ padding: '16px', borderLeft: '4px solid #61b329' }}>
+                        <Card key={idx} style={{ padding: '16px', borderLeft: '4px solid #4d672a' }}>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                                 <span style={{ fontSize: '16px' }}>🤔</span>
                                 <p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: '#1f3d1f', lineHeight: '1.4' }}>

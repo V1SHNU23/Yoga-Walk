@@ -208,7 +208,7 @@
 .profileProgressFill {
   height: 100%;
   border-radius: inherit;
-  background: #61b329;
+  background: #4d672a;
 }
 
 /* --- HISTORY ITEMS --- */
@@ -262,7 +262,7 @@
 
 .historySubValue {
   font-size: 11px; 
-  color: #61b329;
+  color: #4d672a;
 }
 
 /* --- ACTION BUTTONS --- */
@@ -294,5 +294,5 @@
 .profileSecondaryButton {
   background: rgba(255, 255, 255, 0.9);
   color: #2f7a33;
-  border: 1px solid rgba(97, 179, 41, 0.4);
+  border: 1px solid rgba(77, 103, 42, 0.4);
 }

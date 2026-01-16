@@ -59,7 +59,7 @@ For quick testing, you can create a simple SVG icon:
 
 - Use a simple, recognizable design
 - Ensure it looks good at small sizes (72x72)
-- Use your brand colors (#61b329 green)
+- Use your brand colors (#4d672a green)
 - Consider adding a yoga pose silhouette or walking path icon
 - Keep it centered with padding (safe area)
 

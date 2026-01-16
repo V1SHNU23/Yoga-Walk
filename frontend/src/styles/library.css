@@ -152,7 +152,7 @@
 }
 
 .libTabActive {
-  border-color: #61b329;
+  border-color: #4d672a;
   background: #e5f6e5;
   color: #0a6f00;
   font-weight: 600;
@@ -188,7 +188,7 @@
   flex: 0 0 auto;
   padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(97, 179, 41, 0.4);
+  border: 1px solid rgba(77, 103, 42, 0.4);
   background: #ffffff;
   font-size: 13px;
   color: #526b57;
@@ -208,7 +208,7 @@
 
 .libFilterChipActive {
   background: #e5f6e5;
-  border-color: #61b329;
+  border-color: #4d672a;
   color: #0a6f00;
   font-weight: 600;
 }
@@ -247,7 +247,7 @@
   padding: 12px 16px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(97, 179, 41, 0.40);
+  border: 1px solid rgba(77, 103, 42, 0.40);
   box-shadow: none;
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -359,7 +359,7 @@
 }
 
 .libBtnSave {
-  color: #61b329;
+  color: #4d672a;
 }
 
 .libBuilderTitle {
@@ -414,8 +414,8 @@
 .libDraftEmpty {
   padding: 20px;
   text-align: center;
-  color: #61b329;
-  border: 2px dashed #61b329;
+  color: #4d672a;
+  border: 2px dashed #4d672a;
   border-radius: 24px;
   font-size: 13px;
   margin: 0;
@@ -558,7 +558,7 @@
 .libSaveRouteBtn {
   padding: 8px 16px;
   border-radius: 999px;
-  background: #61b329;
+  background: #4d672a;
   color: white;
   border: none;
   font-size: 13px;
@@ -569,7 +569,7 @@
 }
 
 .libSaveRouteBtn:hover {
-  background: #4a8c20;
+  background: #2d3c19;
 }
 
 .libSaveRouteBtn:active {
@@ -616,7 +616,7 @@
 }
 
 .libToggleSwitch input:checked + .libToggleSlider {
-  background-color: #61b329;
+  background-color: #4d672a;
 }
 
 .libToggleSwitch input:checked + .libToggleSlider:before {
@@ -639,7 +639,7 @@
   padding: 14px 16px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(97, 179, 41, 0.40);
+  border: 1px solid rgba(77, 103, 42, 0.40);
   margin-bottom: 0;
 }
 
@@ -708,7 +708,7 @@
   border-radius: 16px;
   padding: 14px 16px;
   background: linear-gradient(135deg, #e9f7dd 0%, #ffffff 100%);
-  border: 1px dashed rgba(97, 179, 41, 0.5);
+  border: 1px dashed rgba(77, 103, 42, 0.5);
 }
 
 .libSavedRoutesTitle {
@@ -737,7 +737,7 @@
   justify-content: center;
   font-size: 14px;
   font-weight: 700;       /* Bold text */
-  border: 1px solid rgba(97, 179, 41, 0.2);
+  border: 1px solid rgba(77, 103, 42, 0.2);
   cursor: pointer;
   margin-left: 12px;
   transition: all 0.2s ease;
@@ -749,15 +749,15 @@
 }
 
 .libAddButtonActive {
-  background: #61b329;    /* Yoga Green */
+  background: #4d672a;    /* Yoga Green */
   color: #ffffff;         /* White text */
-  border-color: #61b329;
+  border-color: #4d672a;
 }
 
 /* Create New Routine Card */
 .libCreateNewCard {
   background: linear-gradient(135deg, #e9f7dd 0%, #ffffff 100%);
-  border: 2px dashed #61b329;
+  border: 2px dashed #4d672a;
   border-radius: 20px;
   padding: 20px;
   text-align: center;
@@ -777,7 +777,7 @@
 
 .libCreateIcon {
   font-size: 24px;
-  color: #61b329;
+  color: #4d672a;
   font-weight: 300;
 }
 
@@ -827,7 +827,7 @@
 
 .libStartWalkBtn {
   flex: 1;
-  background: #61b329;
+  background: #4d672a;
   color: white;
   border: none;
   padding: 12px;
@@ -835,7 +835,7 @@
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.3);
+  box-shadow: 0 4px 12px rgba(77, 103, 42, 0.3);
   transition: transform 0.1s;
 }
 
@@ -862,7 +862,7 @@
 }
 
 .libCardTitle {
-  color: #61b329;
+  color: #4d672a;
   margin-top: 0;
   margin-bottom: 8px;
   font-size: 16px;
@@ -902,14 +902,14 @@
   align-items: center;
   justify-content: center;
   padding: 40px 24px;
-  border: 2px solid rgba(97, 179, 41, 0.5);
+  border: 2px solid rgba(77, 103, 42, 0.5);
   border-radius: 24px;
   background: linear-gradient(135deg, rgba(233, 247, 221, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%);
-  color: #61b329;
+  color: #4d672a;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
-  box-shadow: 0 4px 16px rgba(97, 179, 41, 0.15);
+  box-shadow: 0 4px 16px rgba(77, 103, 42, 0.15);
   position: relative;
   overflow: hidden;
 }
@@ -918,7 +918,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(97, 179, 41, 0.1), rgba(97, 179, 41, 0.05));
+  background: linear-gradient(135deg, rgba(77, 103, 42, 0.1), rgba(77, 103, 42, 0.05));
   border-radius: 24px;
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -928,8 +928,8 @@
 
 .libCoverUploadBox:hover {
   background: linear-gradient(135deg, rgba(233, 247, 221, 0.8) 0%, rgba(255, 255, 255, 1) 100%);
-  border-color: #61b329;
-  box-shadow: 0 6px 24px rgba(97, 179, 41, 0.25);
+  border-color: #4d672a;
+  box-shadow: 0 6px 24px rgba(77, 103, 42, 0.25);
   transform: translateY(-2px);
 }
 
@@ -939,7 +939,7 @@
 
 .libCoverUploadBox:active {
   transform: translateY(0);
-  box-shadow: 0 2px 12px rgba(97, 179, 41, 0.2);
+  box-shadow: 0 2px 12px rgba(77, 103, 42, 0.2);
 }
 
 .libCoverUploadIcon {
@@ -947,7 +947,7 @@
   margin-bottom: 12px;
   position: relative;
   z-index: 2;
-  filter: drop-shadow(0 2px 4px rgba(97, 179, 41, 0.2));
+  filter: drop-shadow(0 2px 4px rgba(77, 103, 42, 0.2));
 }
 
 .libCoverUploadText {
@@ -965,8 +965,8 @@
   height: 160px; /* Slightly taller banner */
   border-radius: 24px;
   overflow: hidden;
-  border: 2px solid #61b329;
-  box-shadow: 0 6px 20px rgba(97, 179, 41, 0.25);
+  border: 2px solid #4d672a;
+  box-shadow: 0 6px 20px rgba(77, 103, 42, 0.25);
   background: #f4f8f1;
 }
 
@@ -982,7 +982,7 @@
   bottom: 12px;
   right: 12px;
   background: rgba(255, 255, 255, 0.95);
-  color: #61b329;
+  color: #4d672a;
   padding: 8px 16px;
   border-radius: 999px;
   font-size: 12px;
@@ -991,7 +991,7 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: all 0.2s ease;
-  border: 1px solid rgba(97, 179, 41, 0.3);
+  border: 1px solid rgba(77, 103, 42, 0.3);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -1025,7 +1025,7 @@
 .libDraftItemTimeBtn:hover {
   background: #e9f7dd;
   color: #1f3d1f;
-  border-color: #61b329;
+  border-color: #4d672a;
 }
 
 .libDraftItemTimeBtn:active {
@@ -1187,7 +1187,7 @@
 
 .libModalBtn.cancel {
   background-color: #f2f9f0; 
-  border: 1px solid #61b329; 
+  border: 1px solid #4d672a; 
   color: #1f3d1f;            
 }
 
@@ -1199,7 +1199,7 @@
 
 .libModalBtn.save {
   background-color: #e9f7dd; 
-  border: 1px solid #61b329; 
+  border: 1px solid #4d672a; 
   color: #0a6f00;            
 }
 
@@ -1228,7 +1228,7 @@
 .libModalTextarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid rgba(97, 179, 41, 0.3);
+  border: 1px solid rgba(77, 103, 42, 0.3);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
@@ -1241,7 +1241,7 @@
 .libModalInput:focus,
 .libModalTextarea:focus {
   outline: none;
-  border-color: #61b329;
+  border-color: #4d672a;
 }
 
 .libModalTextarea {
@@ -1295,14 +1295,14 @@
 
 /* State when item is added */
 .libAddBtnActive {
-  background: #61b329;
+  background: #4d672a;
   color: #ffffff;
 }
 
 /* Optional: Highlight the card slightly when added */
 .libPoseCardSelected {
   background: rgba(233, 247, 221, 0.6); /* Very faint green tint */
-  border-color: #61b329;
+  border-color: #4d672a;
 }
 
 /* =========================================
@@ -1317,24 +1317,24 @@
 /* Premium builder pose card */
 .libBuilderPoseCard {
   background: #ffffff;
-  border: 1px solid rgba(97, 179, 41, 0.15);
+  border: 1px solid rgba(77, 103, 42, 0.15);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   border-radius: 20px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .libBuilderPoseCard:hover {
-  box-shadow: 0 6px 24px rgba(97, 179, 41, 0.15);
+  box-shadow: 0 6px 24px rgba(77, 103, 42, 0.15);
   transform: translateY(-2px);
-  border-color: rgba(97, 179, 41, 0.3);
+  border-color: rgba(77, 103, 42, 0.3);
 }
 
 /* Premium circular badge for pose icon */
 .libBuilderPoseThumb {
   border-radius: 50% !important;
   background: linear-gradient(135deg, #e9f7dd 0%, #f4f8f1 100%) !important;
-  border: 2px solid rgba(97, 179, 41, 0.2) !important;
-  box-shadow: 0 2px 8px rgba(97, 179, 41, 0.15) !important;
+  border: 2px solid rgba(77, 103, 42, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(77, 103, 42, 0.15) !important;
   overflow: hidden;
 }
 
@@ -1346,27 +1346,27 @@
 .libBuilderAddButton {
   background: linear-gradient(135deg, #e9f7dd 0%, #d4f0c4 100%) !important;
   color: #0a6f00 !important;
-  border: 1px solid rgba(97, 179, 41, 0.3) !important;
-  box-shadow: 0 2px 8px rgba(97, 179, 41, 0.2) !important;
+  border: 1px solid rgba(77, 103, 42, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(77, 103, 42, 0.2) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .libBuilderAddButton:hover {
   background: linear-gradient(135deg, #d4f0c4 0%, #c0e8b0 100%) !important;
-  box-shadow: 0 4px 12px rgba(97, 179, 41, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(77, 103, 42, 0.3) !important;
   transform: translateY(-1px);
 }
 
 .libBuilderAddButton:active {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 6px rgba(97, 179, 41, 0.25) !important;
+  box-shadow: 0 2px 6px rgba(77, 103, 42, 0.25) !important;
 }
 
 .libBuilderAddButton.libAddButtonActive {
-  background: linear-gradient(135deg, #61b329 0%, #4a8c20 100%) !important;
+  background: linear-gradient(135deg, #4d672a 0%, #2d3c19 100%) !important;
   color: #ffffff !important;
-  border-color: #61b329 !important;
-  box-shadow: 0 4px 16px rgba(97, 179, 41, 0.4) !important;
+  border-color: #4d672a !important;
+  box-shadow: 0 4px 16px rgba(77, 103, 42, 0.4) !important;
 }
 
 /* =========================================
